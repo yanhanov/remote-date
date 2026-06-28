@@ -5,6 +5,8 @@ import { PhCamera, PhSpinner, PhSun, PhMoon } from '@phosphor-icons/vue'
 import { useColorMode } from '@vueuse/core'
 import { authStore } from '@/entities/user'
 import { authAPI } from '@/shared/api/auth.api'
+import { AvatarCropDialog } from '@/features/profile'
+import { AVATAR_SOURCE_MAX_BYTES } from '@/shared/lib/avatar-image'
 import { toDateInputValue } from '@/shared/lib/birth-date'
 import { cn } from '@/shared/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
@@ -14,9 +16,6 @@ import { Label } from '@/shared/ui/label'
 import { ThemeToggle } from '@/shared/ui/theme-toggle'
 
 type Sex = 'male' | 'female' | 'other' | ''
-
-const MAX_AVATAR_SIZE = 2 * 1024 * 1024
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
 const user = computed(() => authStore.user.value)
 const colorMode = useColorMode()
@@ -30,6 +29,8 @@ const avatarUrl = ref('')
 const isSaving = ref(false)
 const isUploadingAvatar = ref(false)
 const isDraggingAvatar = ref(false)
+const cropDialogOpen = ref(false)
+const pendingCropFile = ref<File | null>(null)
 const avatarInputRef = useTemplateRef<HTMLInputElement>('avatarInput')
 
 watch(
@@ -44,6 +45,10 @@ watch(
   },
   { immediate: true },
 )
+
+watch(cropDialogOpen, (open) => {
+  if (!open) pendingCropFile.value = null
+})
 
 const displayName = computed(() => {
   if (firstName.value && lastName.value) {
@@ -82,17 +87,8 @@ const selectClass = cn(
   'dark:bg-input/30',
 )
 
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('Failed to read image'))
-    reader.readAsDataURL(file)
-  })
-}
-
 function openAvatarPicker() {
-  if (isUploadingAvatar.value) return
+  if (isUploadingAvatar.value || cropDialogOpen.value) return
   avatarInputRef.value?.click()
 }
 
@@ -102,21 +98,27 @@ async function uploadAvatar(dataUrl: string) {
   avatarUrl.value = updated.avatarUrl ?? dataUrl
 }
 
-async function processAvatarFile(file: File) {
-  if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-    toast.error('Use JPG, PNG, WebP or GIF')
+function processAvatarFile(file: File) {
+  if (!file.type.startsWith('image/')) {
+    toast.error('Please select an image')
     return
   }
 
-  if (file.size > MAX_AVATAR_SIZE) {
-    toast.error('Image must be under 2 MB')
+  if (file.size > AVATAR_SOURCE_MAX_BYTES) {
+    toast.error('Image must be under 12 MB')
     return
   }
 
+  pendingCropFile.value = file
+  cropDialogOpen.value = true
+  isDraggingAvatar.value = false
+}
+
+async function onAvatarCropConfirm(dataUrl: string) {
+  pendingCropFile.value = null
   isUploadingAvatar.value = true
 
   try {
-    const dataUrl = await readFileAsDataUrl(file)
     avatarUrl.value = dataUrl
     await uploadAvatar(dataUrl)
     toast.success('Photo updated')
@@ -126,7 +128,6 @@ async function processAvatarFile(file: File) {
     toast.error(message)
   } finally {
     isUploadingAvatar.value = false
-    isDraggingAvatar.value = false
   }
 }
 
@@ -134,7 +135,7 @@ async function onAvatarSelected(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
-  if (file) await processAvatarFile(file)
+  if (file) processAvatarFile(file)
 }
 
 function onAvatarDragOver(event: DragEvent) {
@@ -150,7 +151,7 @@ async function onAvatarDrop(event: DragEvent) {
   event.preventDefault()
   isDraggingAvatar.value = false
   const file = event.dataTransfer?.files?.[0]
-  if (file) await processAvatarFile(file)
+  if (file) processAvatarFile(file)
 }
 
 async function removeAvatar() {
@@ -219,7 +220,7 @@ const onSubmit = async () => {
           <button
             type="button"
             class="profile-page__avatar-trigger relative rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed"
-            :disabled="isUploadingAvatar"
+            :disabled="isUploadingAvatar || cropDialogOpen"
             aria-label="Upload profile photo"
             @click="openAvatarPicker"
           >
@@ -257,7 +258,7 @@ const onSubmit = async () => {
           <input
             ref="avatarInput"
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept="image/*"
             class="profile-page__avatar-input sr-only"
             @change="onAvatarSelected"
           />
@@ -282,7 +283,7 @@ const onSubmit = async () => {
           v-if="hasAvatar"
           type="button"
           class="profile-page__remove-photo mt-3 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:opacity-50"
-          :disabled="isUploadingAvatar"
+          :disabled="isUploadingAvatar || cropDialogOpen"
           @click="removeAvatar"
         >
           Remove photo
@@ -407,5 +408,11 @@ const onSubmit = async () => {
         </section>
       </div>
     </div>
+
+    <AvatarCropDialog
+      v-model:open="cropDialogOpen"
+      :file="pendingCropFile"
+      @confirm="onAvatarCropConfirm"
+    />
   </div>
 </template>
