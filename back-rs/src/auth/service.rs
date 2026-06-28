@@ -6,7 +6,8 @@ use crate::auth::dto::{
     RegisterResponse, RefreshTokenResponse, UpdateProfileDto,
 };
 use crate::auth::jwt;
-use crate::auth::models::{AuthStore, Sex};
+use crate::auth::models::{Sex, User};
+use crate::auth::mongo::MongoAuthRepository;
 use crate::config::Settings;
 
 const CODE_EXPIRY_MINUTES: i64 = 15;
@@ -16,8 +17,8 @@ pub struct AuthService;
 
 impl AuthService {
     pub async fn register(
-        settings: &Settings,
-        store: &mut AuthStore,
+        _settings: &Settings,
+        repo: &MongoAuthRepository,
         dto: RegisterDto,
     ) -> Result<RegisterResponse> {
         let email = dto.email.trim().to_lowercase();
@@ -33,21 +34,19 @@ impl AuthService {
             return Err(anyhow!("Password must be at least 6 characters"));
         }
 
-        if let Some(existing) = store.get_user_by_email(&email) {
+        if let Some(existing) = repo.get_user_by_email(&email).await? {
             if existing.verified {
                 return Err(anyhow!("User with this email already exists"));
             }
         }
 
-        // Hash password and create (unverified) user
         let hashed_password = hash(password, 10)?;
-        store.create_user(email.clone(), hashed_password, false);
+        repo.create_user(email.clone(), hashed_password, false).await?;
 
-        // Generate verification code and store it
         let code = format!("{:06}", fastrand::u32(0..1_000_000));
-        store.save_verification_code(email.clone(), code.clone(), CODE_EXPIRY_MINUTES);
+        repo.save_verification_code(email.clone(), code.clone(), CODE_EXPIRY_MINUTES)
+            .await?;
 
-        // In Rust version we just log the code; front-end UX stays the same.
         tracing::info!("Verification code for {email}: {code}");
 
         Ok(RegisterResponse {
@@ -58,14 +57,15 @@ impl AuthService {
 
     pub async fn register_check(
         settings: &Settings,
-        store: &mut AuthStore,
+        repo: &MongoAuthRepository,
         dto: RegisterCheckDto,
     ) -> Result<RegisterCheckResponse> {
         let email = dto.email.trim().to_lowercase();
         let code = dto.code.trim().to_string();
 
-        let vc = store
+        let vc = repo
             .take_verification_code(&email)
+            .await?
             .ok_or_else(|| anyhow!("Verification code not found or expired"))?;
 
         if chrono::Utc::now() > vc.expires_at {
@@ -76,21 +76,22 @@ impl AuthService {
             return Err(anyhow!("Invalid verification code"));
         }
 
-        let mut user = store
+        let mut user = repo
             .get_user_by_email(&email)
-            .cloned()
+            .await?
             .ok_or_else(|| anyhow!("User not found"))?;
         user.verified = true;
-        store.users.insert(user.id.clone(), user.clone());
+        repo.save_user(&user).await?;
 
         let access_token =
             jwt::generate_access_token(settings, user.id.clone(), user.email.clone())?;
         let refresh_token = uuid::Uuid::new_v4().to_string();
-        store.store_refresh_token(
+        repo.store_refresh_token(
             user.id.clone(),
             refresh_token.clone(),
             REFRESH_TOKEN_EXPIRY_DAYS,
-        );
+        )
+        .await?;
 
         Ok(RegisterCheckResponse {
             message: "Registration successful".to_string(),
@@ -102,15 +103,15 @@ impl AuthService {
 
     pub async fn login(
         settings: &Settings,
-        store: &mut AuthStore,
+        repo: &MongoAuthRepository,
         dto: LoginDto,
     ) -> Result<LoginResponse> {
         let email = dto.email.trim().to_lowercase();
         let password = dto.password;
 
-        let user = store
+        let user = repo
             .get_user_by_email(&email)
-            .cloned()
+            .await?
             .ok_or_else(|| anyhow!("Invalid email or password"))?;
 
         if !user.verified {
@@ -124,11 +125,12 @@ impl AuthService {
         let access_token =
             jwt::generate_access_token(settings, user.id.clone(), user.email.clone())?;
         let refresh_token = uuid::Uuid::new_v4().to_string();
-        store.store_refresh_token(
+        repo.store_refresh_token(
             user.id.clone(),
             refresh_token.clone(),
             REFRESH_TOKEN_EXPIRY_DAYS,
-        );
+        )
+        .await?;
 
         Ok(LoginResponse {
             message: "Login successful".to_string(),
@@ -141,22 +143,22 @@ impl AuthService {
 
     pub async fn refresh_access_token(
         settings: &Settings,
-        store: &mut AuthStore,
+        repo: &MongoAuthRepository,
         refresh_token: String,
     ) -> Result<RefreshTokenResponse> {
-        let token_doc = store
+        let token_doc = repo
             .get_refresh_token(&refresh_token)
-            .cloned()
+            .await?
             .ok_or_else(|| anyhow!("Invalid refresh token"))?;
 
         if chrono::Utc::now() > token_doc.expires_at {
-            store.delete_refresh_token(&refresh_token);
+            repo.delete_refresh_token(&refresh_token).await?;
             return Err(anyhow!("Refresh token has expired"));
         }
 
-        let user = store
+        let user = repo
             .get_user_by_id(&token_doc.user_id)
-            .cloned()
+            .await?
             .ok_or_else(|| anyhow!("User not found or not verified"))?;
 
         if !user.verified {
@@ -167,12 +169,13 @@ impl AuthService {
             jwt::generate_access_token(settings, user.id.clone(), user.email.clone())?;
         let new_refresh = uuid::Uuid::new_v4().to_string();
 
-        store.delete_refresh_token(&refresh_token);
-        store.store_refresh_token(
+        repo.delete_refresh_token(&refresh_token).await?;
+        repo.store_refresh_token(
             user.id.clone(),
             new_refresh.clone(),
             REFRESH_TOKEN_EXPIRY_DAYS,
-        );
+        )
+        .await?;
 
         Ok(RefreshTokenResponse {
             access_token: new_access,
@@ -180,19 +183,19 @@ impl AuthService {
         })
     }
 
-    pub async fn logout(store: &mut AuthStore, refresh_token: String) -> Result<()> {
-        store.delete_refresh_token(&refresh_token);
+    pub async fn logout(repo: &MongoAuthRepository, refresh_token: String) -> Result<()> {
+        repo.delete_refresh_token(&refresh_token).await?;
         Ok(())
     }
 
     pub async fn update_profile(
-        store: &mut AuthStore,
+        repo: &MongoAuthRepository,
         user_id: String,
         dto: UpdateProfileDto,
-    ) -> Result<crate::auth::models::User> {
-        let mut user = store
+    ) -> Result<User> {
+        let mut user = repo
             .get_user_by_id(&user_id)
-            .cloned()
+            .await?
             .ok_or_else(|| anyhow!("User not found"))?;
 
         if let Some(first) = dto.first_name {
@@ -222,8 +225,7 @@ impl AuthService {
             }
         }
 
-        store.users.insert(user.id.clone(), user.clone());
+        repo.save_user(&user).await?;
         Ok(user)
     }
 }
-

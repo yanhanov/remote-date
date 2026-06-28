@@ -1,38 +1,57 @@
 <script setup lang="ts">
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
-import { YOUTUBE_PLAYER_ELEMENT_ID } from '../model/youtube.types'
+import { YOUTUBE_PLAYER_ELEMENT_ID } from "../model/youtube.types";
 
 defineProps<{
-  roomId: string
-  participants: number
-  error?: string | null
-}>()
+  roomId: string;
+  participants: number;
+  hasVideo?: boolean;
+  error?: string | null;
+}>();
 </script>
 
 <template>
-  <Card class="youtube-player-card">
-    <CardHeader class="youtube-player-card__header">
-      <CardTitle class="youtube-player-card__title flex items-center justify-between">
-        <span class="youtube-player-card__room-id">Room: {{ roomId.slice(0, 8) }}...</span>
-        <span class="youtube-player-card__participants text-sm font-normal">
-          Participants: {{ participants }}
-        </span>
-      </CardTitle>
-    </CardHeader>
-    <CardContent class="youtube-player-card__content">
-      <div
-        class="youtube-player-card__viewport aspect-video w-full overflow-hidden rounded-lg bg-black relative"
+  <section
+    class="youtube-player-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40"
+  >
+    <header
+      class="youtube-player-card__header flex shrink-0 items-center justify-between border-b border-border/40 px-4 py-3"
+    >
+      <span
+        class="youtube-player-card__room-id text-xs font-medium text-muted-foreground"
       >
+        Room {{ roomId.slice(0, 8) }}
+      </span>
+      <span
+        class="youtube-player-card__participants text-xs text-muted-foreground"
+      >
+        {{ participants }} online
+      </span>
+    </header>
+
+    <div class="youtube-player-card__content flex min-h-0 flex-1 flex-col p-3">
+      <div
+        class="youtube-player-card__viewport relative min-h-[180px] flex-1 overflow-hidden rounded-lg bg-black"
+      >
+        <div
+          v-if="!hasVideo"
+          class="youtube-player-card__placeholder absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/60"
+        >
+          Search for a video or paste a link to start watching.
+        </div>
         <div
           :id="YOUTUBE_PLAYER_ELEMENT_ID"
           class="youtube-player-card__target absolute inset-0"
         />
       </div>
-      <p v-if="error" class="youtube-player-card__error mt-2 text-sm text-red-500">
+
+      <p
+        v-if="error"
+        class="youtube-player-card__error mt-2 shrink-0 text-xs text-destructive"
+      >
         {{ error }}
       </p>
-    </CardContent>
-  </Card>
+    </div>
+  </section>
 </template>
 
 <style scoped>

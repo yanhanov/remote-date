@@ -59,7 +59,7 @@ class SoundCloudAPI {
     limit = 5,
     filter: "tracks" | "playlists" = "tracks",
   ): Promise<SoundCloudSearchItem[]> {
-    const url = new URL(`${this.baseUrl}/search`);
+    const url = new URL(`${this.baseUrl}/search`, window.location.origin);
     url.searchParams.set("q", query);
     url.searchParams.set("limit", String(limit));
     url.searchParams.set("filter", filter);

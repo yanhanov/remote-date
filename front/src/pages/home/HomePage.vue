@@ -1,72 +1,74 @@
 <script setup lang="ts">
-import { useRouter } from "vue-router";
-import YouTubeIcon from "@/shared/ui/icons/YouTubeIcon.vue";
-import SoundCloudIcon from "@/shared/ui/icons/SoundCloudIcon.vue";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
-import { Button } from "@/shared/ui/button";
+import { RouterLink } from 'vue-router'
+import { ArrowRight } from 'lucide-vue-next'
+import YouTubeIcon from '@/shared/ui/icons/YouTubeIcon.vue'
+import SoundCloudIcon from '@/shared/ui/icons/SoundCloudIcon.vue'
 
-const router = useRouter();
-
-const blocks = [
+const platforms = [
   {
-    title: "YouTube",
-    description:
-      "Create a room with a YouTube video or join an existing room by ID.",
+    title: 'YouTube',
+    description: 'Create a room and pick a video inside.',
     icon: YouTubeIcon,
-    route: "/youtube",
+    route: '/youtube',
   },
   {
-    title: "SoundCloud",
-    description:
-      "Create a SoundCloud room or join one. Choose tracks inside the room.",
+    title: 'SoundCloud',
+    description: 'Listen to tracks together in real time.',
     icon: SoundCloudIcon,
-    route: "/soundcloud",
+    route: '/soundcloud',
   },
-];
+] as const
 </script>
+
 <template>
-  <div class="home-page p-6">
-    <div
-      class="home-page__grid grid md:grid-cols-2 grid-cols-1 gap-6 w-full max-w-4xl"
-    >
-      <Card
-        v-for="block in blocks"
-        :key="block.route"
-        class="home-page__card w-full max-w-md cursor-pointer transition-colors hover:bg-muted/50"
-        @click="router.push(block.route)"
-      >
-        <CardHeader
-          class="home-page__card-header flex flex-row items-start gap-3"
+  <div class="home-page flex flex-1 flex-col items-center justify-center p-6">
+    <div class="home-page__container w-full max-w-md space-y-8">
+      <header class="home-page__header space-y-1.5 text-center">
+        <div class="home-page__brand flex items-center justify-center gap-2.5">
+          <span
+            class="home-page__logo-mark flex size-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-[11px] font-semibold tracking-tight text-background"
+          >
+            R
+          </span>
+          <h1 class="home-page__title text-2xl font-semibold tracking-tight">
+            Remote Date
+          </h1>
+        </div>
+        <p class="home-page__subtitle text-sm text-muted-foreground">
+          Choose a platform to create or join a room.
+        </p>
+      </header>
+
+      <nav class="home-page__nav space-y-2" aria-label="Platforms">
+        <RouterLink
+          v-for="platform in platforms"
+          :key="platform.route"
+          :to="platform.route"
+          class="home-page__link group flex items-center gap-4 rounded-xl border border-border/60 bg-card/40 p-4 transition-colors hover:border-border hover:bg-muted/30"
         >
-          <div
-            class="home-page__card-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted"
+          <span
+            class="home-page__link-icon flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted/50"
           >
             <component
-              :is="block.icon"
-              class="home-page__card-icon-svg h-5 w-5 shrink-0"
+              :is="platform.icon"
+              class="home-page__link-icon-svg size-5 opacity-90"
             />
-          </div>
-          <div class="home-page__card-body flex-1 min-w-0">
-            <CardTitle class="home-page__card-title text-lg">{{
-              block.title
-            }}</CardTitle>
-            <p
-              class="home-page__card-description text-sm text-muted-foreground mt-1"
-            >
-              {{ block.description }}
-            </p>
-          </div>
-        </CardHeader>
-        <CardContent class="home-page__card-content">
-          <Button
-            variant="secondary"
-            class="home-page__card-button w-full"
-            @click.stop="router.push(block.route)"
-          >
-            Open
-          </Button>
-        </CardContent>
-      </Card>
+          </span>
+
+          <span class="home-page__link-body min-w-0 flex-1">
+            <span class="home-page__link-title block text-sm font-medium">
+              {{ platform.title }}
+            </span>
+            <span class="home-page__link-description mt-0.5 block text-sm text-muted-foreground">
+              {{ platform.description }}
+            </span>
+          </span>
+
+          <ArrowRight
+            class="home-page__link-arrow size-4 shrink-0 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
+          />
+        </RouterLink>
+      </nav>
     </div>
   </div>
 </template>

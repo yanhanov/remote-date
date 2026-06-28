@@ -55,6 +55,15 @@ enum IncomingEvent {
         artwork_url: Option<String>,
     },
     #[serde(rename_all = "camelCase")]
+    VideoChange {
+        room_id: String,
+        video_id: String,
+        youtube_url: Option<String>,
+        title: Option<String>,
+        channel_title: Option<String>,
+        thumbnail_url: Option<String>,
+    },
+    #[serde(rename_all = "camelCase")]
     ChatSend {
         room: String,
         text: String,
@@ -396,6 +405,68 @@ async fn handle_event(
                     "title": title,
                     "artist": artist,
                     "artworkUrl": artwork_url
+                }),
+            )
+            .await;
+        }
+        IncomingEvent::VideoChange {
+            room_id,
+            video_id,
+            youtube_url,
+            title,
+            channel_title,
+            thumbnail_url,
+        } => {
+            let mut rooms = app_state.room_store.write().await;
+            let room = match RoomService::get_room(&rooms, &room_id) {
+                Some(r) => r,
+                None => {
+                    send_room_not_found(conn_id).await;
+                    return;
+                }
+            };
+
+            if !matches!(room.room_type, crate::rooms::models::RoomType::Youtube) {
+                send_to_conn(
+                    conn_id,
+                    serde_json::json!({
+                        "event": "room:error",
+                        "message": "Not a YouTube room"
+                    }),
+                )
+                .await;
+                return;
+            }
+
+            if video_id.is_empty() {
+                send_to_conn(
+                    conn_id,
+                    serde_json::json!({
+                        "event": "room:error",
+                        "message": "videoId is required"
+                    }),
+                )
+                .await;
+                return;
+            }
+
+            RoomService::update_youtube_metadata(
+                &mut rooms,
+                &room_id,
+                &video_id,
+                youtube_url.clone(),
+            );
+
+            broadcast_to_room_except(
+                &room_id,
+                conn_id,
+                serde_json::json!({
+                    "event": "video:change",
+                    "videoId": video_id,
+                    "youtubeUrl": youtube_url,
+                    "title": title,
+                    "channelTitle": channel_title,
+                    "thumbnailUrl": thumbnail_url
                 }),
             )
             .await;

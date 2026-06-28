@@ -1,26 +1,35 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { Button } from '@/shared/ui/button'
-import { Slider } from '@/shared/ui/slider'
-import { Card } from '@/shared/ui/card'
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ListMusic, GripVertical } from 'lucide-vue-next'
-import DropdownMenu from '@/shared/ui/dropdown-menu/DropdownMenu.vue'
-import DropdownMenuTrigger from '@/shared/ui/dropdown-menu/DropdownMenuTrigger.vue'
-import DropdownMenuContent from '@/shared/ui/dropdown-menu/DropdownMenuContent.vue'
-import DropdownMenuItem from '@/shared/ui/dropdown-menu/DropdownMenuItem.vue'
+import { computed, ref } from "vue";
+import { Button } from "@/shared/ui/button";
+import { Slider } from "@/shared/ui/slider";
+import { Card } from "@/shared/ui/card";
+import {
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Volume2,
+  VolumeX,
+  ListMusic,
+  GripVertical,
+} from "lucide-vue-next";
+import DropdownMenu from "@/shared/ui/dropdown-menu/DropdownMenu.vue";
+import DropdownMenuTrigger from "@/shared/ui/dropdown-menu/DropdownMenuTrigger.vue";
+import DropdownMenuContent from "@/shared/ui/dropdown-menu/DropdownMenuContent.vue";
+import DropdownMenuItem from "@/shared/ui/dropdown-menu/DropdownMenuItem.vue";
 
 const props = defineProps({
   title: {
     type: String,
-    default: 'No track selected',
+    default: "No track selected",
   },
   artist: {
     type: String,
-    default: '',
+    default: "",
   },
   artworkUrl: {
     type: String,
-    default: '',
+    default: "",
   },
   isPlaying: {
     type: Boolean,
@@ -47,7 +56,11 @@ const props = defineProps({
     default: false,
   },
   queue: {
-    type: Array as () => { id: string | number; title?: string | null; artist?: string | null }[],
+    type: Array as () => {
+      id: string | number;
+      title?: string | null;
+      artist?: string | null;
+    }[],
     default: () => [],
   },
   currentQueueIndex: {
@@ -62,96 +75,101 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-})
+});
 
 const emit = defineEmits<{
-  (e: 'togglePlay'): void
-  (e: 'seek', value: number): void
-  (e: 'toggleMute'): void
-  (e: 'changeVolume', value: number): void
-  (e: 'prev'): void
-  (e: 'next'): void
-  (e: 'like'): void
-  (e: 'selectQueueIndex', index: number): void
-  (e: 'reorderQueue', newOrderIds: (string | number)[]): void
-}>()
+  (e: "togglePlay"): void;
+  (e: "seek", value: number): void;
+  (e: "toggleMute"): void;
+  (e: "changeVolume", value: number): void;
+  (e: "prev"): void;
+  (e: "next"): void;
+  (e: "like"): void;
+  (e: "selectQueueIndex", index: number): void;
+  (e: "reorderQueue", newOrderIds: (string | number)[]): void;
+}>();
 
-const draggedIndex = ref<number | null>(null)
+const draggedIndex = ref<number | null>(null);
 
 function onDragStart(e: DragEvent, index: number) {
-  draggedIndex.value = index
-  e.dataTransfer?.setData('text/plain', String(index))
-  e.dataTransfer!.effectAllowed = 'move'
+  draggedIndex.value = index;
+  e.dataTransfer?.setData("text/plain", String(index));
+  e.dataTransfer!.effectAllowed = "move";
 }
 
 function onDragOver(e: DragEvent) {
-  e.preventDefault()
-  e.dataTransfer!.dropEffect = 'move'
+  e.preventDefault();
+  e.dataTransfer!.dropEffect = "move";
 }
 
 function onDrop(e: DragEvent, dropIndex: number) {
-  e.preventDefault()
-  const from = draggedIndex.value
+  e.preventDefault();
+  const from = draggedIndex.value;
   if (from === null || from === dropIndex) {
-    draggedIndex.value = null
-    return
+    draggedIndex.value = null;
+    return;
   }
-  const ids = [...props.queue].map((t) => t.id).filter((id): id is string | number => id != null)
-  const [removed] = ids.splice(from, 1)
+  const ids = [...props.queue]
+    .map((t) => t.id)
+    .filter((id): id is string | number => id != null);
+  const [removed] = ids.splice(from, 1);
   if (removed === undefined) {
-    draggedIndex.value = null
-    return
+    draggedIndex.value = null;
+    return;
   }
-  ids.splice(dropIndex, 0, removed)
-  draggedIndex.value = null
-  emit('reorderQueue', ids)
+  ids.splice(dropIndex, 0, removed);
+  draggedIndex.value = null;
+  emit("reorderQueue", ids);
 }
 
 function onDragEnd() {
-  draggedIndex.value = null
+  draggedIndex.value = null;
 }
 
 const formattedTime = computed(() => {
-  const mins = Math.floor(props.currentTime / 60)
-  const secs = Math.floor(props.currentTime % 60)
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-})
+  const mins = Math.floor(props.currentTime / 60);
+  const secs = Math.floor(props.currentTime % 60);
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+});
 
 const formattedDuration = computed(() => {
-  const mins = Math.floor(props.duration / 60)
-  const secs = Math.floor(props.duration % 60)
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-})
+  const mins = Math.floor(props.duration / 60);
+  const secs = Math.floor(props.duration % 60);
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+});
 
 const progressValue = computed(() =>
-  props.duration ? (props.currentTime / props.duration) * 100 : 0
-)
+  props.duration ? (props.currentTime / props.duration) * 100 : 0,
+);
 
 const handleSeek = (values?: number[]) => {
-  const value = values?.[0] ?? 0
-  emit('seek', value)
-}
+  const value = values?.[0] ?? 0;
+  emit("seek", value);
+};
 
 const handleVolumeChange = (values?: number[]) => {
-  const value = values?.[0] ?? 0
-  emit('changeVolume', value)
-}
+  const value = values?.[0] ?? 0;
+  emit("changeVolume", value);
+};
 </script>
 
 <template>
   <Card
-    class="absolute inset-x-0 left-0 -bottom-17 w-full py-2 rounded-none border border-border/60 bg-background/95 backdrop-blur-sm z-20">
+    class="absolute inset-x-0 left-0 -bottom-17 w-full py-2 rounded-none border border-border/60 bg-background/95 backdrop-blur-sm z-20"
+  >
     <div
       class="flex flex-col gap-2 px-3 sm:px-4 sm:flex-row sm:items-center sm:gap-4 py-0!"
     >
       <!-- Artwork -->
       <div
-        class="h-10 w-10 md:flex hidden sm:h-12 sm:w-12 rounded-md bg-muted overflow-hidden shrink-0 items-center justify-center">
+        class="h-10 w-10 md:flex hidden sm:h-12 sm:w-12 rounded-md bg-muted overflow-hidden shrink-0 items-center justify-center"
+      >
         <img
           v-if="artworkUrl"
           :src="artworkUrl"
           alt=""
-          class="h-full w-full object-cover" />
+          class="h-full w-full object-cover"
+        />
         <span v-else class="text-xs text-muted-foreground">SC</span>
       </div>
 
@@ -184,7 +202,8 @@ const handleVolumeChange = (values?: number[]) => {
           :max="100"
           :step="1"
           class="w-full"
-          @update:model-value="handleSeek" />
+          @update:model-value="handleSeek"
+        />
       </div>
 
       <!-- Controls -->
@@ -197,7 +216,8 @@ const handleVolumeChange = (values?: number[]) => {
           variant="ghost"
           class="text-muted-foreground hover:text-foreground"
           :disabled="!canGoPrev"
-          @click="emit('prev')">
+          @click="emit('prev')"
+        >
           <SkipBack class="w-4 h-4" />
         </Button>
 
@@ -207,10 +227,11 @@ const handleVolumeChange = (values?: number[]) => {
           variant="ghost"
           class="rounded-full border border-border/60 bg-primary text-primary-foreground hover:bg-primary/90 dark:hover:bg-white/70 hover:text-primary-foreground"
           :disabled="!canPlay"
-          @click="emit('togglePlay')">
+          @click="emit('togglePlay')"
+        >
           <span v-if="!isPlaying"><Play class="w-4 h-4" /></span>
           <span v-else><Pause class="size-4" /></span>
-        </Button> 
+        </Button>
 
         <!-- Next -->
         <Button
@@ -218,7 +239,8 @@ const handleVolumeChange = (values?: number[]) => {
           variant="ghost"
           class="text-muted-foreground hover:text-foreground"
           :disabled="!canGoNext"
-          @click="emit('next')">
+          @click="emit('next')"
+        >
           <SkipForward class="w-4 h-4" />
         </Button>
 
@@ -234,8 +256,12 @@ const handleVolumeChange = (values?: number[]) => {
                 <ListMusic class="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent class="w-72 max-h-[min(70vh,400px)] overflow-y-auto">
-              <div class="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+            <DropdownMenuContent
+              class="w-72 max-h-[min(70vh,400px)] overflow-y-auto"
+            >
+              <div
+                class="px-2 py-1.5 text-xs font-medium text-muted-foreground"
+              >
                 Queue
               </div>
               <DropdownMenuItem
@@ -243,7 +269,9 @@ const handleVolumeChange = (values?: number[]) => {
                 :key="track.id ?? index"
                 :class="[
                   'flex flex-col items-start gap-0.5 group',
-                  index === currentQueueIndex ? 'bg-accent text-accent-foreground' : '',
+                  index === currentQueueIndex
+                    ? 'bg-accent text-accent-foreground'
+                    : '',
                 ]"
                 draggable="true"
                 @click="emit('selectQueueIndex', index)"
@@ -262,7 +290,7 @@ const handleVolumeChange = (values?: number[]) => {
                   </span>
                   <div class="flex-1 min-w-0 flex flex-col items-start gap-0.5">
                     <span class="text-xs font-medium truncate w-full">
-                      {{ track.title || 'Untitled track' }}
+                      {{ track.title || "Untitled track" }}
                     </span>
                     <span
                       v-if="track.artist"
@@ -278,14 +306,13 @@ const handleVolumeChange = (values?: number[]) => {
         </DropdownMenu>
 
         <!-- Volume -->
-        <div
-          class="hidden sm:flex items-center gap-2 w-24 md:w-32"
-        >
+        <div class="hidden sm:flex items-center gap-2 w-24 md:w-32">
           <Button
             size="icon"
             variant="ghost"
             class="text-muted-foreground hover:text-foreground"
-            @click="emit('toggleMute')">
+            @click="emit('toggleMute')"
+          >
             <VolumeX v-if="muted || volume === 0" class="w-4 h-4" />
             <Volume2 v-else class="w-4 h-4" />
           </Button>
@@ -295,10 +322,10 @@ const handleVolumeChange = (values?: number[]) => {
             :max="100"
             :step="1"
             class="w-full"
-            @update:model-value="handleVolumeChange" />
+            @update:model-value="handleVolumeChange"
+          />
         </div>
       </div>
     </div>
   </Card>
 </template>
-

@@ -1,112 +1,162 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { roomAPI } from '@/shared/api/room.api'
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
-import { Label } from '@/shared/ui/label'
-import { Input } from '@/shared/ui/input'
-import { Button } from '@/shared/ui/button'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { ArrowRight, Loader2, LogIn, Plus } from "lucide-vue-next";
+import { roomAPI } from "@/shared/api/room.api";
+import { Input } from "@/shared/ui/input";
+import { Button } from "@/shared/ui/button";
+import YouTubeIcon from "@/shared/ui/icons/YouTubeIcon.vue";
 
-const router = useRouter()
-const youtubeUrl = ref('')
-const roomIdToJoin = ref('')
-const createLoading = ref(false)
-const joinLoading = ref(false)
-const createError = ref<string | null>(null)
-const joinError = ref<string | null>(null)
+const router = useRouter();
+const roomIdToJoin = ref("");
+const createLoading = ref(false);
+const joinLoading = ref(false);
+const createError = ref<string | null>(null);
+const joinError = ref<string | null>(null);
 
 async function createRoom() {
-  if (!youtubeUrl.value.trim()) {
-    createError.value = 'Please enter a YouTube URL'
-    return
-  }
-
-  createLoading.value = true
-  createError.value = null
+  createLoading.value = true;
+  createError.value = null;
 
   try {
-    const room = await roomAPI.createRoom({ youtubeUrl: youtubeUrl.value })
-    router.push(`/room/${room.id}`)
-  } catch (err: any) {
-    createError.value = err.message || 'Failed to create room'
+    const room = await roomAPI.createRoom({ type: "youtube" });
+    router.push(`/room/${room.id}`);
+  } catch (err: unknown) {
+    createError.value =
+      err instanceof Error ? err.message : "Failed to create room";
   } finally {
-    createLoading.value = false
+    createLoading.value = false;
   }
 }
 
 async function joinRoom() {
-  const id = roomIdToJoin.value.trim()
+  const id = roomIdToJoin.value.trim();
   if (!id) {
-    joinError.value = 'Please enter a room ID'
-    return
+    joinError.value = "Please enter a room ID";
+    return;
   }
 
-  joinLoading.value = true
-  joinError.value = null
+  joinLoading.value = true;
+  joinError.value = null;
 
   try {
-    await roomAPI.getRoom(id)
-    router.push(`/room/${id}`)
-  } catch (err: any) {
-    joinError.value = err.message || 'Room not found'
+    const room = await roomAPI.getRoom(id);
+    if (room.type !== "youtube") {
+      joinError.value = "This is not a YouTube room";
+      return;
+    }
+    router.push(`/room/${id}`);
+  } catch (err: unknown) {
+    joinError.value = err instanceof Error ? err.message : "Room not found";
   } finally {
-    joinLoading.value = false
+    joinLoading.value = false;
   }
 }
 </script>
 
 <template>
-  <div class="youtube-page p-6">
-    <div class="youtube-page__grid grid md:grid-cols-2 grid-cols-1 gap-6 w-full max-w-4xl">
-      <Card class="youtube-page__card youtube-page__card--create flex-1 min-w-0">
-        <CardHeader class="youtube-page__card-header">
-          <CardTitle class="youtube-page__card-title">Create YouTube room</CardTitle>
-        </CardHeader>
-        <CardContent class="youtube-page__card-content space-y-4">
-          <div class="youtube-page__field space-y-2">
-            <Label class="youtube-page__label" for="youtube-url">Paste your YouTube link</Label>
-            <Input
-              id="youtube-url"
-              v-model="youtubeUrl"
-              class="youtube-page__input"
-              type="text"
-              placeholder="https://www.youtube.com/watch?v=..."
-              @keyup.enter="createRoom"
-            />
-            <p v-if="createError" class="youtube-page__error text-sm text-red-500">{{ createError }}</p>
-          </div>
-          <Button class="youtube-page__submit w-full" @click="createRoom" :disabled="createLoading">
-            {{ createLoading ? 'Creating...' : 'Create room' }}
-          </Button>
-        </CardContent>
-      </Card>
-      <Card class="youtube-page__card youtube-page__card--join flex-1 min-w-0">
-        <CardHeader class="youtube-page__card-header">
-          <CardTitle class="youtube-page__card-title">Join YouTube room</CardTitle>
-        </CardHeader>
-        <CardContent class="youtube-page__card-content space-y-4 flex flex-col justify-between h-full">
-          <div class="youtube-page__field space-y-2">
-            <Label class="youtube-page__label" for="room-id">Room ID</Label>
-            <Input
-              id="room-id"
-              v-model="roomIdToJoin"
-              class="youtube-page__input"
-              type="text"
-              placeholder="Enter room ID to join"
-              @keyup.enter="joinRoom"
-            />
-            <p v-if="joinError" class="youtube-page__error text-sm text-red-500">{{ joinError }}</p>
-          </div>
-          <Button
-            class="youtube-page__submit youtube-page__submit--join"
-            variant="secondary"
-            @click="joinRoom"
-            :disabled="joinLoading"
+  <div
+    class="youtube-page flex flex-1 flex-col items-center justify-center p-6"
+  >
+    <div class="youtube-page__container w-full max-w-sm space-y-8">
+      <header class="youtube-page__header space-y-1.5 text-center">
+        <div
+          class="youtube-page__brand flex items-center justify-center gap-2.5"
+        >
+          <span
+            class="youtube-page__icon flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50"
           >
-            {{ joinLoading ? 'Joining...' : 'Join room' }}
+            <YouTubeIcon class="youtube-page__icon-svg size-5 opacity-90" />
+          </span>
+          <h1 class="youtube-page__title text-2xl font-semibold tracking-tight">
+            YouTube
+          </h1>
+        </div>
+        <p class="youtube-page__subtitle text-sm text-muted-foreground">
+          Create a room or join by ID.
+        </p>
+      </header>
+
+      <div class="youtube-page__actions space-y-2">
+        <button
+          type="button"
+          class="youtube-page__create group flex w-full items-center gap-3 rounded-xl border border-border/60 bg-card/40 p-4 text-left transition-colors hover:border-border hover:bg-muted/30 disabled:pointer-events-none disabled:opacity-60"
+          :disabled="createLoading"
+          @click="createRoom"
+        >
+          <span
+            class="youtube-page__create-icon flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50"
+          >
+            <Loader2
+              v-if="createLoading"
+              class="youtube-page__create-spinner size-4 animate-spin text-muted-foreground"
+            />
+            <Plus
+              v-else
+              class="youtube-page__create-plus size-4 text-muted-foreground"
+            />
+          </span>
+
+          <span class="youtube-page__create-body min-w-0 flex-1">
+            <span class="youtube-page__create-title block text-sm font-medium">
+              {{ createLoading ? "Creating..." : "Create room" }}
+            </span>
+            <span
+              class="youtube-page__create-description mt-0.5 block text-xs text-muted-foreground"
+            >
+              Pick a video inside the room
+            </span>
+          </span>
+
+          <ArrowRight
+            class="youtube-page__create-arrow size-4 shrink-0 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
+          />
+        </button>
+
+        <section
+          class="youtube-page__join rounded-xl border border-border/60 bg-card/40 p-4 space-y-3"
+        >
+          <div class="youtube-page__join-header flex items-center gap-2">
+            <LogIn
+              class="youtube-page__join-icon size-4 text-muted-foreground"
+            />
+            <h2 class="youtube-page__join-title text-sm font-medium">
+              Join room
+            </h2>
+          </div>
+
+          <Input
+            id="room-id"
+            v-model="roomIdToJoin"
+            class="youtube-page__join-input h-10 border-border/60 bg-background/60 shadow-none"
+            type="text"
+            placeholder="Room ID"
+            @keyup.enter="joinRoom"
+          />
+
+          <p
+            v-if="joinError"
+            class="youtube-page__error text-xs text-destructive"
+          >
+            {{ joinError }}
+          </p>
+          <p
+            v-else-if="createError"
+            class="youtube-page__error text-xs text-destructive"
+          >
+            {{ createError }}
+          </p>
+
+          <Button
+            class="youtube-page__join-submit h-9 w-full"
+            variant="secondary"
+            :disabled="joinLoading"
+            @click="joinRoom"
+          >
+            {{ joinLoading ? "Joining..." : "Join room" }}
           </Button>
-        </CardContent>
-      </Card>
+        </section>
+      </div>
     </div>
   </div>
 </template>

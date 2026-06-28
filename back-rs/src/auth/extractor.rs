@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use anyhow::anyhow;
 use axum::{
     extract::FromRequestParts,
@@ -13,7 +11,6 @@ use crate::config::AppContext;
 #[derive(Debug, Clone)]
 pub struct AuthUser {
     pub user_id: String,
-    pub email: String,
 }
 
 impl FromRequestParts<AppContext> for AuthUser {
@@ -56,7 +53,6 @@ impl FromRequestParts<AppContext> for AuthUser {
 
         Ok(AuthUser {
             user_id: payload.user_id,
-            email: payload.email,
         })
     }
 }

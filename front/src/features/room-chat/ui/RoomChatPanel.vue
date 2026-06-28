@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Button } from '@/shared/ui/button'
+import { Input } from '@/shared/ui/input'
 import type { ChatMessage } from '@/shared/api/chat.types'
-import { Plus } from 'lucide-vue-next'
+import { Plus, Send } from 'lucide-vue-next'
 
 type UiChatMessage = ChatMessage & {
   isOwn?: boolean
@@ -25,20 +25,33 @@ const emit = defineEmits<{
 }>()
 
 const sortedMessages = computed(() =>
-  [...props.messages].sort((a, b) => a.time - b.time)
+  [...props.messages].sort((a, b) => a.time - b.time),
 )
 
 const messagesContainer = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 
-const scrollToBottom = () => {
+function isOwnMessage(msg: UiChatMessage) {
+  return Boolean(
+    msg.author && props.currentUserName && msg.author === props.currentUserName,
+  )
+}
+
+function scrollToBottom() {
   const el = messagesContainer.value
   if (!el) return
   el.scrollTop = el.scrollHeight
 }
 
-const openFileDialog = () => {
+function openFileDialog() {
   fileInput.value?.click()
+}
+
+function handleFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file) emit('sendFile', file)
+  input.value = ''
 }
 
 watch(
@@ -47,54 +60,63 @@ watch(
     await nextTick()
     scrollToBottom()
   },
-  { deep: true }
+  { deep: true },
 )
 </script>
 
 <template>
-  <Card class="room-chat-panel h-full flex flex-col gap-2">
-    <CardHeader class="room-chat-panel__header pb-3">
-      <CardTitle class="room-chat-panel__title text-base">Chat</CardTitle>
-    </CardHeader>
-    <CardContent class="room-chat-panel__content flex-1 flex flex-col gap-2 pt-0">
-      <div
-        ref="messagesContainer"
-        class="room-chat-panel__messages flex-1 overflow-y-auto border rounded-md p-2 space-y-2 text-sm bg-muted/30 h-full max-h-80! md:max-h-96!"
-      >
-        <div
-          v-if="!sortedMessages.length && !loading"
-          class="text-xs text-muted-foreground text-center mt-4"
-        >
-          No messages yet. Start the conversation!
-        </div>
+  <section
+    class="room-chat-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40"
+  >
+    <header
+      class="room-chat-panel__header shrink-0 border-b border-border/40 px-4 py-3"
+    >
+      <h2 class="room-chat-panel__title text-sm font-medium">Chat</h2>
+    </header>
 
+    <div
+      ref="messagesContainer"
+      class="room-chat-panel__messages min-h-0 flex-1 overflow-y-auto p-3"
+    >
+      <p
+        v-if="!sortedMessages.length && !loading"
+        class="room-chat-panel__empty py-8 text-center text-xs text-muted-foreground"
+      >
+        No messages yet. Start the conversation!
+      </p>
+
+      <div v-else class="room-chat-panel__list space-y-3">
         <div
           v-for="(msg, idx) in sortedMessages"
           :key="idx"
-          class="flex flex-col max-w-[85%]"
-          :class="
-            msg.author && props.currentUserName && msg.author === props.currentUserName
-              ? 'ml-auto items-end'
-              : 'mr-auto items-start'
-          "
+          class="room-chat-panel__message flex max-w-[88%] flex-col"
+          :class="isOwnMessage(msg) ? 'ml-auto items-end' : 'mr-auto items-start'"
         >
-
           <div
-            class="px-3 py-2 rounded-2xl text-sm wrap-break-word"
+            class="room-chat-panel__bubble rounded-2xl px-3 py-2 text-sm wrap-break-word"
             :class="
-              msg.author && props.currentUserName && msg.author === props.currentUserName
-                ? 'bg-primary text-primary-foreground rounded-br-sm'
-                : 'bg-background border rounded-bl-sm'
+              isOwnMessage(msg)
+                ? 'room-chat-panel__bubble--own rounded-br-md bg-primary text-primary-foreground'
+                : 'room-chat-panel__bubble--other rounded-bl-md border border-border/60 bg-background/60'
             "
           >
-          <div class="text-[11px] text-muted-foreground mb-0.5">
-            {{ msg.author }}
-          </div>
-            <p>{{ msg.text }}</p>
+            <p
+              class="room-chat-panel__author mb-1 text-[11px] font-medium"
+              :class="
+                isOwnMessage(msg)
+                  ? 'text-primary-foreground/70'
+                  : 'text-muted-foreground'
+              "
+            >
+              {{ msg.author }}
+            </p>
+
+            <p v-if="msg.text" class="room-chat-panel__text">{{ msg.text }}</p>
 
             <button
               v-if="msg.trackUrl"
-              class="mt-1 inline-flex items-center gap-1 text-xs text-blue-500 hover:underline"
+              class="room-chat-panel__track mt-1 inline-flex items-center gap-1 text-xs hover:underline"
+              :class="isOwnMessage(msg) ? 'text-primary-foreground/90' : 'text-primary'"
               type="button"
               @click="emit('playTrack', msg.trackUrl!)"
             >
@@ -103,59 +125,61 @@ watch(
 
             <div
               v-if="msg.imageUrl"
-              class="mt-2 max-w-[220px] rounded-lg overflow-hidden border cursor-pointer"
+              class="room-chat-panel__image mt-2 max-w-[200px] overflow-hidden rounded-lg border border-border/40"
             >
               <img
                 :src="msg.imageUrl"
                 alt="attachment"
-                class="w-full h-auto object-cover"
+                class="h-auto w-full object-cover"
               />
             </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Input -->
-      <div class="flex items-center gap-2 pt-1">
-        <input
-          :value="newMessage"
-          type="text"
-          class="flex-1 px-3 py-2 border rounded-md text-sm"
-          placeholder="Message, link to track, or image URL"
-          @input="emit('update:newMessage', ($event.target as HTMLInputElement).value)"
-          @keyup.enter="emit('send')"
-        />
+    <footer
+      class="room-chat-panel__composer shrink-0 border-t border-border/40 p-3"
+    >
+      <div class="room-chat-panel__composer-row flex min-w-0 items-center gap-2">
+        <div class="room-chat-panel__input-wrap min-w-0 flex-1">
+          <Input
+            :model-value="newMessage"
+            class="room-chat-panel__input h-9 border-border/60 bg-background/60 shadow-none"
+            type="text"
+            placeholder="Message..."
+            @update:model-value="emit('update:newMessage', String($event))"
+            @keyup.enter="emit('send')"
+          />
+        </div>
+
         <Button
+          type="button"
           size="icon"
-          variant="outline"
-          class="hidden sm:inline-flex"
+          variant="secondary"
+          class="room-chat-panel__attach size-9 shrink-0"
           @click="openFileDialog"
         >
-          <Plus />
+          <Plus class="size-4" />
         </Button>
-        <Button size="sm" @click="emit('send')">
-          Send
+
+        <Button
+          type="button"
+          size="icon"
+          class="room-chat-panel__send size-9 shrink-0"
+          @click="emit('send')"
+        >
+          <Send class="size-4" />
         </Button>
       </div>
-      <input
-        ref="fileInput"
-        type="file"
-        accept="image/*,audio/*"
-        class="hidden"
-        @change="
-          (e) => {
-            const input = e.target as HTMLInputElement
-            const file = input.files?.[0]
-            if (file) {
-              emit('sendFile', file)
-            }
-            if (input) {
-              input.value = ''
-            }
-          }
-        "
-      />
-    </CardContent>
-  </Card>
-</template>
+    </footer>
 
+    <input
+      ref="fileInput"
+      type="file"
+      accept="image/*,audio/*"
+      class="hidden"
+      @change="handleFileChange"
+    />
+  </section>
+</template>

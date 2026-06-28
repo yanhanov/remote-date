@@ -3,6 +3,7 @@ import { socketService } from '@/shared/api/socket.service'
 import type { VideoRoom, VideoState } from '@/shared/api/room.types'
 import { loadYouTubeAPI } from './load-youtube-api'
 import { YOUTUBE_PLAYER_ELEMENT_ID, type YoutubePlayerInstance } from './youtube.types'
+import { youtubeWatchUrl } from './youtube.utils'
 
 const playerRegistry = new Map<string, { player: YoutubePlayerInstance; ready: boolean }>()
 let videoSocketListenersBound = false
@@ -32,6 +33,13 @@ export function useYoutubePlayer(
   const onVideoPlay = (data: { currentTime: number; timestamp: number }) => handleVideoPlay(data)
   const onVideoPause = (data: { currentTime: number; timestamp: number }) => handleVideoPause(data)
   const onVideoSeek = (data: { currentTime: number; timestamp: number }) => handleVideoSeek(data)
+  const onVideoChange = (data: {
+    videoId: string
+    youtubeUrl?: string
+    title?: string
+    channelTitle?: string
+    thumbnailUrl?: string
+  }) => handleVideoChange(data)
 
   function bindSocketListeners() {
     if (videoSocketListenersBound) return
@@ -40,6 +48,7 @@ export function useYoutubePlayer(
     socketService.on('video:pause', onVideoPause)
     socketService.on('video:seek', onVideoSeek)
     socketService.on('video:sync', onVideoSync)
+    socketService.on('video:change', onVideoChange)
     videoSocketListenersBound = true
   }
 
@@ -50,6 +59,7 @@ export function useYoutubePlayer(
     socketService.off('video:pause', onVideoPause)
     socketService.off('video:seek', onVideoSeek)
     socketService.off('video:sync', onVideoSync)
+    socketService.off('video:change', onVideoChange)
     videoSocketListenersBound = false
   }
 
@@ -126,8 +136,9 @@ export function useYoutubePlayer(
 
     playerInitializing = true
 
-    if (!room.value?.youtubeVideoId) {
-      playerError.value = 'Room has no YouTube video'
+    const videoId = room.value?.youtubeVideoId
+    if (!videoId) {
+      playerInitializing = false
       return
     }
 
@@ -150,7 +161,7 @@ export function useYoutubePlayer(
     const rect = playerElement.parentElement.getBoundingClientRect()
     const width = Math.floor(rect.width || 640)
     const height = Math.floor(rect.height || 360)
-    const startSeconds = Math.max(0, Math.floor(room.value.currentTime ?? 0))
+    const startSeconds = Math.max(0, Math.floor(room.value?.currentTime ?? 0))
 
     const YT = window.YT
     if (!YT?.Player) {
@@ -179,7 +190,7 @@ export function useYoutubePlayer(
       }
 
       player = new YT.Player(YOUTUBE_PLAYER_ELEMENT_ID, {
-        videoId: room.value.youtubeVideoId,
+        videoId,
         width,
         height,
         playerVars,
@@ -425,11 +436,68 @@ export function useYoutubePlayer(
     }
   }
 
+  async function loadVideo(videoId: string, youtubeUrl?: string) {
+    if (!room.value) return
+
+    playerError.value = null
+    room.value.youtubeVideoId = videoId
+    room.value.youtubeUrl = youtubeUrl ?? youtubeWatchUrl(videoId)
+    firstSyncApplied = false
+    lastAppliedStateTs = 0
+    pendingApplyTs = 0
+
+    if (player && playerReady.value) {
+      try {
+        isLocalAction.value = true
+        player.loadVideoById?.(videoId)
+        player.pauseVideo?.()
+        setTimeout(() => {
+          isLocalAction.value = false
+        }, 500)
+      } catch (e) {
+        console.error('Error loading video:', e)
+        destroyPlayer()
+        await initializePlayer()
+      }
+      return
+    }
+
+    await initializePlayer()
+  }
+
+  function handleVideoChange(data: {
+    videoId: string
+    youtubeUrl?: string
+  }) {
+    if (!data.videoId || !room.value) return
+    loadVideo(data.videoId, data.youtubeUrl)
+  }
+
+  function changeVideo(data: {
+    videoId: string
+    youtubeUrl?: string
+    title?: string
+    channelTitle?: string
+    thumbnailUrl?: string
+  }) {
+    loadVideo(data.videoId, data.youtubeUrl)
+    socketService.emit('video:change', {
+      roomId,
+      videoId: data.videoId,
+      youtubeUrl: data.youtubeUrl ?? youtubeWatchUrl(data.videoId),
+      title: data.title ?? null,
+      channelTitle: data.channelTitle ?? null,
+      thumbnailUrl: data.thumbnailUrl ?? null,
+    })
+  }
+
   async function setup() {
     bindSocketListeners()
     await loadYouTubeAPI()
     await nextTick()
-    await initializePlayer()
+    if (room.value?.youtubeVideoId) {
+      await initializePlayer()
+    }
   }
 
   function teardown() {
@@ -451,5 +519,6 @@ export function useYoutubePlayer(
     playerError,
     setup,
     teardown,
+    changeVideo,
   }
 }

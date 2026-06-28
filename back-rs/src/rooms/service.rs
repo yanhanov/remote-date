@@ -40,21 +40,21 @@ impl RoomService {
     }
 
     pub fn create_room(store: &mut RoomStore, dto: CreateRoomDto) -> Result<VideoRoom> {
-        let mut room_type;
-        let mut youtube_video_id = None;
-
-        if let Some(youtube_url) = &dto.youtube_url {
+        let (room_type, youtube_video_id) = if let Some(youtube_url) = &dto.youtube_url {
             let video_id = Self::extract_video_id(youtube_url)
                 .ok_or_else(|| anyhow!("Invalid YouTube URL"))?;
-            room_type = RoomType::Youtube;
-            youtube_video_id = Some(video_id);
-        } else if dto.soundcloud_url.is_some() || matches!(dto.room_type, Some(RoomType::Soundcloud)) {
-            room_type = RoomType::Soundcloud;
+            (RoomType::Youtube, Some(video_id))
+        } else if dto.soundcloud_url.is_some()
+            || matches!(dto.room_type, Some(RoomType::Soundcloud))
+        {
+            (RoomType::Soundcloud, None)
+        } else if matches!(dto.room_type, Some(RoomType::Youtube)) {
+            (RoomType::Youtube, None)
         } else {
             return Err(anyhow!(
                 "Either youtubeUrl or soundcloudUrl or type is required"
             ));
-        }
+        };
 
         let id = Uuid::new_v4().to_string();
         let room = VideoRoom {
@@ -139,6 +139,28 @@ impl RoomService {
             room.soundcloud_title = title;
             room.soundcloud_artist = artist;
             room.soundcloud_artwork_url = artwork_url;
+        }
+    }
+
+    pub fn update_youtube_metadata(
+        store: &mut RoomStore,
+        room_id: &str,
+        video_id: &str,
+        youtube_url: Option<String>,
+    ) {
+        if let Some(room) = store.rooms.get_mut(room_id) {
+            room.youtube_video_id = Some(video_id.to_string());
+            room.youtube_url = youtube_url.or_else(|| {
+                Some(format!("https://www.youtube.com/watch?v={video_id}"))
+            });
+            room.current_time = 0.0;
+            room.is_playing = false;
+        }
+
+        if let Some(state) = store.states.get_mut(room_id) {
+            state.current_time = 0.0;
+            state.is_playing = false;
+            state.timestamp = chrono::Utc::now().timestamp_millis();
         }
     }
 }

@@ -28,6 +28,14 @@ export interface SocketEmitEvents {
     }[];
     queueIndex?: number;
   }) => void;
+  "video:change": (data: {
+    roomId: string;
+    videoId: string;
+    youtubeUrl?: string | null;
+    title?: string | null;
+    channelTitle?: string | null;
+    thumbnailUrl?: string | null;
+  }) => void;
 }
 
 // Входящие события — совместимы с тем, что раньше приходило от Socket.IO
@@ -56,6 +64,13 @@ export interface SocketOnEvents {
       durationMs?: number;
     }[];
     queueIndex?: number;
+  }) => void;
+  "video:change": (data: {
+    videoId: string;
+    youtubeUrl?: string;
+    title?: string;
+    channelTitle?: string;
+    thumbnailUrl?: string;
   }) => void;
 }
 
@@ -278,6 +293,28 @@ class SocketService {
           title: data.title,
           artist: data.artist,
           artworkUrl: data.artworkUrl,
+        });
+        break;
+      }
+      case "video:change": {
+        const [data] = args as [
+          {
+            roomId: string;
+            videoId: string;
+            youtubeUrl?: string | null;
+            title?: string | null;
+            channelTitle?: string | null;
+            thumbnailUrl?: string | null;
+          },
+        ];
+        this.send({
+          event: "videoChange",
+          roomId: data.roomId,
+          videoId: data.videoId,
+          youtubeUrl: data.youtubeUrl,
+          title: data.title,
+          channelTitle: data.channelTitle,
+          thumbnailUrl: data.thumbnailUrl,
         });
         break;
       }

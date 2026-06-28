@@ -3,7 +3,6 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use axum::routing::patch;
 
 use crate::auth::dto::{
     LoginDto, RegisterCheckDto, RegisterDto, RefreshTokenRequest, UpdateProfileDto,
@@ -27,8 +26,7 @@ async fn register(
     State(state): State<AppContext>,
     Json(dto): Json<RegisterDto>,
 ) -> (axum::http::StatusCode, Json<serde_json::Value>) {
-    let mut store = state.auth_store.write().await;
-    match AuthService::register(&state.settings, &mut store, dto).await {
+    match AuthService::register(&state.settings, &state.auth_repo, dto).await {
         Ok(resp) => (
             axum::http::StatusCode::OK,
             Json(serde_json::to_value(resp).unwrap()),
@@ -44,8 +42,7 @@ async fn register_check(
     State(state): State<AppContext>,
     Json(dto): Json<RegisterCheckDto>,
 ) -> (axum::http::StatusCode, Json<serde_json::Value>) {
-    let mut store = state.auth_store.write().await;
-    match AuthService::register_check(&state.settings, &mut store, dto).await {
+    match AuthService::register_check(&state.settings, &state.auth_repo, dto).await {
         Ok(resp) => (
             axum::http::StatusCode::OK,
             Json(serde_json::to_value(resp).unwrap()),
@@ -61,8 +58,7 @@ async fn login(
     State(state): State<AppContext>,
     Json(dto): Json<LoginDto>,
 ) -> (axum::http::StatusCode, Json<serde_json::Value>) {
-    let mut store = state.auth_store.write().await;
-    match AuthService::login(&state.settings, &mut store, dto).await {
+    match AuthService::login(&state.settings, &state.auth_repo, dto).await {
         Ok(resp) => (
             axum::http::StatusCode::OK,
             Json(serde_json::to_value(resp).unwrap()),
@@ -78,10 +74,9 @@ async fn refresh(
     State(state): State<AppContext>,
     Json(dto): Json<RefreshTokenRequest>,
 ) -> (axum::http::StatusCode, Json<serde_json::Value>) {
-    let mut store = state.auth_store.write().await;
     match AuthService::refresh_access_token(
         &state.settings,
-        &mut store,
+        &state.auth_repo,
         dto.refresh_token,
     )
     .await
@@ -101,8 +96,7 @@ async fn logout(
     State(state): State<AppContext>,
     Json(dto): Json<RefreshTokenRequest>,
 ) -> (axum::http::StatusCode, Json<serde_json::Value>) {
-    let mut store = state.auth_store.write().await;
-    let _ = AuthService::logout(&mut store, dto.refresh_token).await;
+    let _ = AuthService::logout(&state.auth_repo, dto.refresh_token).await;
     (
         axum::http::StatusCode::OK,
         Json(serde_json::json!({ "message": "Logged out successfully" })),
@@ -113,9 +107,8 @@ async fn get_me(
     State(state): State<AppContext>,
     user: AuthUser,
 ) -> (axum::http::StatusCode, Json<serde_json::Value>) {
-    let store = state.auth_store.read().await;
-    match store.get_user_by_id(&user.user_id) {
-        Some(u) => {
+    match state.auth_repo.get_user_by_id(&user.user_id).await {
+        Ok(Some(u)) => {
             let body = serde_json::json!({
                 "userId": u.id,
                 "email": u.email,
@@ -129,9 +122,13 @@ async fn get_me(
             });
             (axum::http::StatusCode::OK, Json(body))
         }
-        None => (
+        Ok(None) => (
             axum::http::StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "error": "User not found" })),
+        ),
+        Err(err) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": err.to_string() })),
         ),
     }
 }
@@ -141,8 +138,7 @@ async fn update_me(
     user: AuthUser,
     Json(dto): Json<UpdateProfileDto>,
 ) -> (axum::http::StatusCode, Json<serde_json::Value>) {
-    let mut store = state.auth_store.write().await;
-    match AuthService::update_profile(&mut store, user.user_id, dto).await {
+    match AuthService::update_profile(&state.auth_repo, user.user_id, dto).await {
         Ok(u) => {
             let body = serde_json::json!({
                 "userId": u.id,
