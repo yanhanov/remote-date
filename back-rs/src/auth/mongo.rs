@@ -112,12 +112,29 @@ impl MongoAuthRepository {
             .await
             .context("Failed to create verification code TTL index")?;
 
+        self.users
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "username": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            .unique(true)
+                            .sparse(true)
+                            .name(Some("users_username_unique".to_string()))
+                            .build(),
+                    )
+                    .build(),
+            )
+            .await
+            .ok();
+
         Ok(())
     }
 
     pub async fn create_user(
         &self,
         email: String,
+        username: String,
         password_hash: String,
         verified: bool,
     ) -> Result<User> {
@@ -129,6 +146,7 @@ impl MongoAuthRepository {
         let user = User {
             id: id.clone(),
             email: email.clone(),
+            username: Some(username),
             password_hash,
             created_at: Utc::now(),
             verified,
@@ -145,6 +163,13 @@ impl MongoAuthRepository {
 
     pub async fn get_user_by_email(&self, email: &str) -> Result<Option<User>> {
         Ok(self.users.find_one(doc! { "email": email }).await?)
+    }
+
+    pub async fn get_user_by_username(&self, username: &str) -> Result<Option<User>> {
+        Ok(self
+            .users
+            .find_one(doc! { "username": username })
+            .await?)
     }
 
     pub async fn get_user_by_id(&self, id: &str) -> Result<Option<User>> {

@@ -1,11 +1,12 @@
 use axum::{
-    extract::State,
+    extract::{Query, State},
     routing::{get, post},
     Json, Router,
 };
 
 use crate::auth::dto::{
     LoginDto, RegisterCheckDto, RegisterDto, RefreshTokenRequest, UpdateProfileDto,
+    UsernameCheckQuery,
 };
 use crate::auth::extractor::AuthUser;
 use crate::auth::service::AuthService;
@@ -16,6 +17,7 @@ pub fn router() -> Router<AppContext> {
     Router::new()
         .route("/register", post(register))
         .route("/register-check", post(register_check))
+        .route("/username/check", get(check_username))
         .route("/login", post(login))
         .route("/refresh", post(refresh))
         .route("/logout", post(logout))
@@ -49,6 +51,22 @@ async fn register_check(
         ),
         Err(err) => (
             axum::http::StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": err.to_string() })),
+        ),
+    }
+}
+
+async fn check_username(
+    State(state): State<AppContext>,
+    Query(query): Query<UsernameCheckQuery>,
+) -> (axum::http::StatusCode, Json<serde_json::Value>) {
+    match AuthService::check_username(&state.auth_repo, &query.username).await {
+        Ok(resp) => (
+            axum::http::StatusCode::OK,
+            Json(serde_json::to_value(resp).unwrap()),
+        ),
+        Err(err) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": err.to_string() })),
         ),
     }
@@ -112,6 +130,7 @@ async fn get_me(
             let body = serde_json::json!({
                 "userId": u.id,
                 "email": u.email,
+                "username": u.username,
                 "firstName": u.first_name,
                 "lastName": u.last_name,
                 "birthDate": u.birth_date,
@@ -143,6 +162,7 @@ async fn update_me(
             let body = serde_json::json!({
                 "userId": u.id,
                 "email": u.email,
+                "username": u.username,
                 "firstName": u.first_name,
                 "lastName": u.last_name,
                 "birthDate": u.birth_date,

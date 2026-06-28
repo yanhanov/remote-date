@@ -1,7 +1,9 @@
 import { SOCKET_URL } from "../config/api";
+import { tokenService } from "./token.service";
 import { toast } from "vue-sonner";
 import type { VideoState } from "./room.types";
 import type { ChatMessage } from "./chat.types";
+import type { DmMessagePayload } from "./social.types";
 
 // Исходящие события — публичный контракт для остального кода фронта
 export interface SocketEmitEvents {
@@ -12,6 +14,7 @@ export interface SocketEmitEvents {
   "video:seek": (data: { roomId: string; currentTime: number }) => void;
   "video:sync_request": (roomId: string) => void;
   "chat:send": (msg: ChatMessage) => void;
+  "dm:send": (data: { recipientId: string; text: string }) => void;
   "audio:track_change": (data: {
     roomId: string;
     trackUrl: string;
@@ -50,6 +53,8 @@ export interface SocketOnEvents {
   "room:user_left": (data: { roomId: string; participants: number }) => void;
   "room:error": (error: { message: string }) => void;
   "chat:message": (msg: ChatMessage) => void;
+  "dm:message": (msg: DmMessagePayload) => void;
+  "dm:error": (error: { message: string }) => void;
   "audio:track_change": (data: {
     trackUrl: string;
     title?: string;
@@ -84,6 +89,15 @@ class SocketService {
   private listeners = new Map<keyof SocketOnEvents, Set<Function>>();
   private pendingQueue: string[] = [];
   private errorToastShown = false;
+  private currentUrl: string | null = null;
+
+  private getSocketUrl(): string {
+    const token = tokenService.getAccessToken();
+    if (!token) return SOCKET_URL;
+
+    const separator = SOCKET_URL.includes("?") ? "&" : "?";
+    return `${SOCKET_URL}${separator}token=${encodeURIComponent(token)}`;
+  }
 
   private flushQueue() {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
@@ -92,19 +106,29 @@ class SocketService {
     }
   }
 
-  private setupWebSocket() {
+  private setupWebSocket(forceReconnect = false) {
+    const url = this.getSocketUrl();
+
     if (
+      !forceReconnect &&
       this.ws &&
       (this.ws.readyState === WebSocket.OPEN ||
-        this.ws.readyState === WebSocket.CONNECTING)
+        this.ws.readyState === WebSocket.CONNECTING) &&
+      this.currentUrl === url
     ) {
       return;
     }
 
-    this.ws = new WebSocket(SOCKET_URL);
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+
+    this.currentUrl = url;
+    this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {
-      console.log("WebSocket connected:", SOCKET_URL);
+      console.log("WebSocket connected:", url);
       this.errorToastShown = false;
       this.flushQueue();
     };
@@ -112,10 +136,11 @@ class SocketService {
     this.ws.onclose = () => {
       console.log("WebSocket disconnected");
       this.ws = null;
+      this.currentUrl = null;
     };
 
     this.ws.onerror = () => {
-      console.error("WebSocket error:", SOCKET_URL);
+      console.error("WebSocket error:", url);
       if (!this.errorToastShown) {
         this.errorToastShown = true;
         toast.error("Connection error. Trying to reconnect…");
@@ -153,13 +178,24 @@ class SocketService {
     };
   }
 
-  connect(): WebSocket {
-    this.setupWebSocket();
+  connect(options?: { forceReconnect?: boolean }): WebSocket {
+    this.setupWebSocket(options?.forceReconnect ?? false);
     return this.ws as WebSocket;
+  }
+
+  connectAuthenticated(): WebSocket {
+    const url = this.getSocketUrl();
+    const needsReconnect =
+      !this.ws ||
+      this.currentUrl !== url ||
+      this.ws.readyState === WebSocket.CLOSED ||
+      this.ws.readyState === WebSocket.CLOSING;
+    return this.connect({ forceReconnect: needsReconnect });
   }
 
   disconnect(): void {
     this.pendingQueue = [];
+    this.currentUrl = null;
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -209,6 +245,7 @@ class SocketService {
 
     // CLOSING / CLOSED — переподключаемся и ставим в очередь
     this.ws = null;
+    this.currentUrl = null;
     this.connect();
     this.pendingQueue.push(payload);
   }
@@ -270,6 +307,15 @@ class SocketService {
           time: msg.time,
           trackUrl: msg.trackUrl,
           imageUrl: msg.imageUrl,
+        });
+        break;
+      }
+      case "dm:send": {
+        const [data] = args as [{ recipientId: string; text: string }];
+        this.send({
+          event: "dmSend",
+          recipientId: data.recipientId,
+          text: data.text,
         });
         break;
       }

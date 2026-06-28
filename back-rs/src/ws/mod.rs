@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        State,
+        Query, State,
     },
     response::Response,
 };
@@ -16,7 +16,9 @@ use uuid::Uuid;
 use crate::chat::models::ChatMessage;
 use crate::chat::service::ChatService;
 use crate::config::AppContext;
+use crate::auth::jwt;
 use crate::rooms::service::RoomService;
+use crate::social::service::SocialService;
 
 type Tx = mpsc::UnboundedSender<Message>;
 
@@ -26,6 +28,10 @@ struct WsState {
     rooms: HashMap<String, HashSet<Uuid>>,
     // connection id -> sender
     peers: HashMap<Uuid, Tx>,
+    // authenticated connection -> user id
+    conn_users: HashMap<Uuid, String>,
+    // user id -> connection ids
+    user_conns: HashMap<String, HashSet<Uuid>>,
 }
 
 static WS_STATE: Lazy<RwLock<WsState>> = Lazy::new(|| RwLock::new(WsState::default()));
@@ -74,16 +80,33 @@ enum IncomingEvent {
         track_url: Option<String>,
         image_url: Option<String>,
     },
+    #[serde(rename_all = "camelCase")]
+    DmSend {
+        recipient_id: String,
+        text: String,
+    },
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct WsQuery {
+    token: Option<String>,
 }
 
 pub async fn ws_handler(
     State(state): State<AppContext>,
+    Query(query): Query<WsQuery>,
     ws: WebSocketUpgrade,
 ) -> Response {
-    ws.on_upgrade(move |socket| handle_socket(state, socket))
+    let user_id = query
+        .token
+        .as_deref()
+        .and_then(|token| jwt::verify_token(&state.settings, token))
+        .map(|claims| claims.user_id);
+
+    ws.on_upgrade(move |socket| handle_socket(state, socket, user_id))
 }
 
-async fn handle_socket(state: AppContext, socket: WebSocket) {
+async fn handle_socket(state: AppContext, socket: WebSocket, user_id: Option<String>) {
     let (mut sender, mut receiver) = socket.split();
 
     let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
@@ -92,6 +115,14 @@ async fn handle_socket(state: AppContext, socket: WebSocket) {
     {
         let mut ws_state = WS_STATE.write().await;
         ws_state.peers.insert(conn_id, tx);
+        if let Some(user_id) = user_id.clone() {
+            ws_state.conn_users.insert(conn_id, user_id.clone());
+            ws_state
+                .user_conns
+                .entry(user_id)
+                .or_default()
+                .insert(conn_id);
+        }
     }
 
     // Task: forward messages from channel to real socket
@@ -525,6 +556,55 @@ async fn handle_event(
             )
             .await;
         }
+        IncomingEvent::DmSend {
+            recipient_id,
+            text,
+        } => {
+            let sender_id = {
+                let ws_state = WS_STATE.read().await;
+                ws_state.conn_users.get(&conn_id).cloned()
+            };
+
+            let Some(sender_id) = sender_id else {
+                send_dm_error(conn_id, "Authentication required for direct messages").await;
+                return;
+            };
+
+            match SocialService::send_direct_message(
+                &app_state.social_repo,
+                &sender_id,
+                &recipient_id,
+                text,
+            )
+            .await
+            {
+                Ok(message) => {
+                    let payload = serde_json::json!({
+                        "id": message.id,
+                        "conversationId": message.conversation_id,
+                        "senderId": message.sender_id,
+                        "recipientId": recipient_id,
+                        "text": message.text,
+                        "createdAt": message.created_at,
+                    });
+
+                    broadcast_to_user(&sender_id, serde_json::json!({
+                        "event": "dm:message",
+                        "payload": payload.clone(),
+                    }))
+                    .await;
+
+                    broadcast_to_user(&recipient_id, serde_json::json!({
+                        "event": "dm:message",
+                        "payload": payload,
+                    }))
+                    .await;
+                }
+                Err(err) => {
+                    send_dm_error(conn_id, &err.to_string()).await;
+                }
+            }
+        }
     }
 }
 
@@ -548,6 +628,15 @@ async fn cleanup_connection(conn_id: Uuid, app_state: &AppContext) {
         }
 
         ws_state.peers.remove(&conn_id);
+
+        if let Some(user_id) = ws_state.conn_users.remove(&conn_id) {
+            if let Some(set) = ws_state.user_conns.get_mut(&user_id) {
+                set.remove(&conn_id);
+                if set.is_empty() {
+                    ws_state.user_conns.remove(&user_id);
+                }
+            }
+        }
     }
 
     for room_id in affected_rooms {
@@ -610,6 +699,33 @@ async fn broadcast_to_room_except(
             }
         }
     }
+}
+
+async fn broadcast_to_user(user_id: &str, value: serde_json::Value) {
+    let text = match serde_json::to_string(&value) {
+        Ok(t) => t,
+        Err(_) => return,
+    };
+
+    let ws_state = WS_STATE.read().await;
+    if let Some(conns) = ws_state.user_conns.get(user_id) {
+        for conn_id in conns {
+            if let Some(tx) = ws_state.peers.get(conn_id) {
+                let _ = tx.send(Message::Text(text.clone().into()));
+            }
+        }
+    }
+}
+
+async fn send_dm_error(conn_id: Uuid, message: &str) {
+    send_to_conn(
+        conn_id,
+        serde_json::json!({
+            "event": "dm:error",
+            "message": message
+        }),
+    )
+    .await;
 }
 
 async fn send_room_not_found(conn_id: Uuid) {

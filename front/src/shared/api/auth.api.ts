@@ -11,6 +11,7 @@ import type {
   LoginResponse,
   RefreshTokenResponse,
   UpdateProfileDto,
+  UsernameCheckResponse,
 } from './auth.types'
 
 class AuthAPI {
@@ -140,6 +141,18 @@ class AuthAPI {
     return response.json()
   }
 
+  async checkUsername(username: string): Promise<UsernameCheckResponse> {
+    const params = new URLSearchParams({ username })
+    const response = await fetch(`${this.baseUrl}/username/check?${params}`)
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to check username')
+    }
+
+    return response.json()
+  }
+
   async registerCheck(dto: RegisterCheckDto): Promise<RegisterCheckResponse> {
     const response = await fetch(`${this.baseUrl}/register-check`, {
       method: 'POST',
@@ -210,6 +223,7 @@ class AuthAPI {
   async getMe(): Promise<{
     userId: string
     email: string
+    username?: string
     firstName?: string
     lastName?: string
     birthDate?: string
@@ -234,6 +248,7 @@ class AuthAPI {
   async updateProfile(dto: UpdateProfileDto): Promise<{
     userId: string
     email: string
+    username?: string
     firstName?: string
     lastName?: string
     birthDate?: string

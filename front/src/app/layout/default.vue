@@ -10,12 +10,12 @@ import { ThemeToggle } from "@/shared/ui/theme-toggle";
 </script>
 <template>
   <SidebarProvider>
-    <div class="app-layout flex min-h-screen w-full">
+    <div class="app-layout flex h-svh w-full overflow-hidden">
       <Sidebar />
 
-      <SidebarInset class="app-layout__main">
+      <SidebarInset class="app-layout__main min-h-0 overflow-hidden">
         <header
-          class="app-layout__header flex justify-between md:h-14 h-12 shrink-0 items-center gap-2 px-4"
+          class="app-layout__header flex h-12 shrink-0 items-center justify-between gap-2 px-4 md:h-14"
         >
           <div
             class="app-layout__header-start flex min-w-0 flex-1 items-center gap-2"
@@ -27,8 +27,8 @@ import { ThemeToggle } from "@/shared/ui/theme-toggle";
           </div>
           <ThemeToggle class="app-layout__theme-toggle shrink-0" />
         </header>
-        <div class="app-layout__body flex flex-1 flex-col">
-          <RouterView class="app-layout__content flex-1" />
+        <div class="app-layout__body flex min-h-0 flex-1 flex-col overflow-hidden">
+          <RouterView class="app-layout__content flex min-h-0 flex-1 flex-col overflow-hidden" />
         </div>
       </SidebarInset>
     </div>

@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, ref, useTemplateRef, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
-import { PhCamera, PhSpinner, PhSun, PhMoon } from '@phosphor-icons/vue'
+import { PhCamera, PhSpinner, PhSun, PhMoon, PhSignOut } from '@phosphor-icons/vue'
 import { useColorMode } from '@vueuse/core'
 import { authStore } from '@/entities/user'
 import { authAPI } from '@/shared/api/auth.api'
 import { AvatarCropDialog } from '@/features/profile'
 import { AVATAR_SOURCE_MAX_BYTES } from '@/shared/lib/avatar-image'
 import { toDateInputValue } from '@/shared/lib/birth-date'
+import { isValidUsername, normalizeUsername, USERNAME_HINT } from '@/shared/lib/username'
 import { cn } from '@/shared/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Button } from '@/shared/ui/button'
@@ -18,10 +20,12 @@ import { ThemeToggle } from '@/shared/ui/theme-toggle'
 type Sex = 'male' | 'female' | 'other' | ''
 
 const user = computed(() => authStore.user.value)
+const router = useRouter()
 const colorMode = useColorMode()
 
 const firstName = ref('')
 const lastName = ref('')
+const username = ref('')
 const birthDate = ref('')
 const sex = ref<Sex>('')
 const avatarUrl = ref('')
@@ -39,6 +43,7 @@ watch(
     if (!current) return
     firstName.value = current.firstName ?? ''
     lastName.value = current.lastName ?? ''
+    username.value = current.username ?? ''
     birthDate.value = toDateInputValue(current.birthDate)
     sex.value = (current.sex as Sex | undefined) ?? ''
     avatarUrl.value = current.avatarUrl ?? ''
@@ -56,6 +61,7 @@ const displayName = computed(() => {
   }
   if (firstName.value) return firstName.value
   if (lastName.value) return lastName.value
+  if (username.value) return username.value
   return user.value?.email?.split('@')[0] ?? 'Guest'
 })
 
@@ -175,10 +181,17 @@ async function removeAvatar() {
 const onSubmit = async () => {
   if (!user.value) return
 
+  const normalizedUsername = normalizeUsername(username.value)
+  if (normalizedUsername && !isValidUsername(normalizedUsername)) {
+    toast.error(USERNAME_HINT)
+    return
+  }
+
   isSaving.value = true
 
   try {
     const updated = await authAPI.updateProfile({
+      username: normalizedUsername || undefined,
       firstName: firstName.value || undefined,
       lastName: lastName.value || undefined,
       birthDate: birthDate.value || undefined,
@@ -186,6 +199,7 @@ const onSubmit = async () => {
     })
 
     authStore.setUser(updated)
+    username.value = updated.username ?? ''
     birthDate.value = toDateInputValue(updated.birthDate)
     toast.success('Profile saved')
   } catch (e: unknown) {
@@ -193,6 +207,23 @@ const onSubmit = async () => {
     toast.error(message)
   } finally {
     isSaving.value = false
+  }
+}
+
+const isLoggingOut = ref(false)
+
+async function logout() {
+  if (isLoggingOut.value) return
+
+  isLoggingOut.value = true
+  try {
+    await authStore.logout()
+    toast.success('Logged out')
+    router.push('/auth')
+  } catch {
+    toast.error('Failed to log out')
+  } finally {
+    isLoggingOut.value = false
   }
 }
 </script>
@@ -265,10 +296,16 @@ const onSubmit = async () => {
         </div>
 
         <div class="profile-page__identity mt-4 min-w-0">
-          <p class="profile-page__display-name truncate text-base font-semibold tracking-tight">
-            {{ displayName }}
-          </p>
-          <p class="profile-page__email mt-0.5 truncate text-sm text-muted-foreground">
+            <p class="profile-page__display-name truncate text-base font-semibold tracking-tight">
+              {{ displayName }}
+            </p>
+            <p
+              v-if="username"
+              class="profile-page__username mt-0.5 truncate text-sm text-muted-foreground"
+            >
+              @{{ username }}
+            </p>
+            <p class="profile-page__email mt-0.5 truncate text-sm text-muted-foreground">
             {{ user?.email }}
           </p>
           <p
@@ -303,6 +340,28 @@ const onSubmit = async () => {
           </div>
 
           <div class="profile-page__form-body space-y-5 p-5 md:p-6">
+            <div class="profile-page__field profile-page__field--username space-y-2">
+              <Label class="profile-page__label text-muted-foreground" for="profile-handle">
+                Username
+              </Label>
+              <Input
+                id="profile-handle"
+                v-model="username"
+                class="profile-page__input profile-page__input--username"
+                type="text"
+                name="profile-handle"
+                autocomplete="off"
+                autocapitalize="off"
+                autocorrect="off"
+                spellcheck="false"
+                placeholder="yourname"
+                :disabled="isSaving"
+              />
+              <p class="profile-page__username-hint text-xs text-muted-foreground">
+                Letters, numbers, underscores. 3–30 characters.
+              </p>
+            </div>
+
             <div class="profile-page__row profile-page__row--name grid gap-4 sm:grid-cols-2">
               <div class="profile-page__field profile-page__field--first-name space-y-2">
                 <Label class="profile-page__label text-muted-foreground" for="first-name">
@@ -404,6 +463,33 @@ const onSubmit = async () => {
               </div>
             </div>
             <ThemeToggle class="profile-page__theme-toggle shrink-0" />
+          </div>
+
+          <div
+            class="profile-page__settings-row mt-3 flex items-center justify-between gap-4 rounded-lg border border-border/50 bg-background/40 px-4 py-3"
+          >
+            <div class="profile-page__settings-row-body flex min-w-0 items-center gap-3">
+              <span
+                class="profile-page__settings-icon flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50"
+              >
+                <PhSignOut class="size-4 text-muted-foreground" />
+              </span>
+              <div class="min-w-0">
+                <p class="profile-page__settings-row-title text-sm font-medium">Log out</p>
+                <p class="profile-page__settings-row-description text-xs text-muted-foreground">
+                  Sign out of your account
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              class="profile-page__logout shrink-0"
+              :disabled="isLoggingOut"
+              @click="logout"
+            >
+              {{ isLoggingOut ? 'Logging out…' : 'Log out' }}
+            </Button>
           </div>
         </section>
       </div>

@@ -3,26 +3,42 @@ use bcrypt::{hash, verify};
 
 use crate::auth::dto::{
     LoginDto, LoginResponse, RegisterCheckDto, RegisterCheckResponse, RegisterDto,
-    RegisterResponse, RefreshTokenResponse, UpdateProfileDto,
+    RegisterResponse, RefreshTokenResponse, UpdateProfileDto, UsernameCheckResponse,
 };
 use crate::auth::jwt;
 use crate::auth::models::{Sex, User};
 use crate::auth::mongo::MongoAuthRepository;
 use crate::config::Settings;
+use crate::email::EmailService;
 
 const CODE_EXPIRY_MINUTES: i64 = 15;
 const REFRESH_TOKEN_EXPIRY_DAYS: i64 = 30;
 
 pub struct AuthService;
 
+fn normalize_username(raw: &str) -> Result<String> {
+    let username = raw.trim().to_lowercase();
+    let username_regex =
+        regex::Regex::new(r"^[a-z][a-z0-9_]{2,29}$").unwrap();
+
+    if !username_regex.is_match(&username) {
+        return Err(anyhow!(
+            "Username must be 3-30 characters, start with a letter, and use only letters, numbers, or underscores"
+        ));
+    }
+
+    Ok(username)
+}
+
 impl AuthService {
     pub async fn register(
-        _settings: &Settings,
+        settings: &Settings,
         repo: &MongoAuthRepository,
         dto: RegisterDto,
     ) -> Result<RegisterResponse> {
         let email = dto.email.trim().to_lowercase();
         let password = dto.password;
+        let username = normalize_username(&dto.username)?;
 
         let email_regex =
             regex::Regex::new(r"^[^\s@]+@[^\s@]+\.[^\s@]+$").unwrap();
@@ -34,6 +50,12 @@ impl AuthService {
             return Err(anyhow!("Password must be at least 6 characters"));
         }
 
+        if let Some(existing) = repo.get_user_by_username(&username).await? {
+            if existing.email != email {
+                return Err(anyhow!("Username is already taken"));
+            }
+        }
+
         if let Some(existing) = repo.get_user_by_email(&email).await? {
             if existing.verified {
                 return Err(anyhow!("User with this email already exists"));
@@ -41,18 +63,44 @@ impl AuthService {
         }
 
         let hashed_password = hash(password, 10)?;
-        repo.create_user(email.clone(), hashed_password, false).await?;
+        repo.create_user(email.clone(), username, hashed_password, false)
+            .await?;
 
         let code = format!("{:06}", fastrand::u32(0..1_000_000));
         repo.save_verification_code(email.clone(), code.clone(), CODE_EXPIRY_MINUTES)
             .await?;
 
-        tracing::info!("Verification code for {email}: {code}");
+        EmailService::send_verification_code(settings, &email, &code).await?;
 
         Ok(RegisterResponse {
             message: "Verification code sent to your email".to_string(),
             email,
         })
+    }
+
+    pub async fn check_username(
+        repo: &MongoAuthRepository,
+        raw: &str,
+    ) -> Result<UsernameCheckResponse> {
+        match normalize_username(raw) {
+            Ok(username) => {
+                if repo.get_user_by_username(&username).await?.is_some() {
+                    Ok(UsernameCheckResponse {
+                        available: false,
+                        reason: Some("Username is already taken".to_string()),
+                    })
+                } else {
+                    Ok(UsernameCheckResponse {
+                        available: true,
+                        reason: None,
+                    })
+                }
+            }
+            Err(err) => Ok(UsernameCheckResponse {
+                available: false,
+                reason: Some(err.to_string()),
+            }),
+        }
     }
 
     pub async fn register_check(
@@ -106,20 +154,22 @@ impl AuthService {
         repo: &MongoAuthRepository,
         dto: LoginDto,
     ) -> Result<LoginResponse> {
-        let email = dto.email.trim().to_lowercase();
+        let login = dto.login.trim();
         let password = dto.password;
 
-        let user = repo
-            .get_user_by_email(&email)
-            .await?
-            .ok_or_else(|| anyhow!("Invalid email or password"))?;
+        let user = if login.contains('@') {
+            repo.get_user_by_email(&login.to_lowercase()).await?
+        } else {
+            repo.get_user_by_username(&login.to_lowercase()).await?
+        }
+        .ok_or_else(|| anyhow!("Invalid email, username or password"))?;
 
         if !user.verified {
             return Err(anyhow!("Please verify your email first"));
         }
 
         if !verify(password, &user.password_hash)? {
-            return Err(anyhow!("Invalid email or password"));
+            return Err(anyhow!("Invalid email, username or password"));
         }
 
         let access_token =
@@ -198,6 +248,15 @@ impl AuthService {
             .await?
             .ok_or_else(|| anyhow!("User not found"))?;
 
+        if let Some(raw) = dto.username {
+            let username = normalize_username(&raw)?;
+            if let Some(other) = repo.get_user_by_username(&username).await? {
+                if other.id != user.id {
+                    return Err(anyhow!("Username is already taken"));
+                }
+            }
+            user.username = Some(username);
+        }
         if let Some(first) = dto.first_name {
             user.first_name = Some(first);
         }

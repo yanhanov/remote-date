@@ -5,6 +5,8 @@ import { useVModel } from '@vueuse/core'
 import { cn } from '@/shared/lib/utils'
 import { PhEye, PhEyeSlash } from '@phosphor-icons/vue'
 
+defineOptions({ inheritAttrs: false })
+
 const props = defineProps<{
   defaultValue?: string | number
   modelValue?: string | number
@@ -41,6 +43,7 @@ function togglePasswordVisibility() {
 <template>
   <div class="relative w-full">
     <input
+      v-bind="$attrs"
       v-model="modelValue"
       :type="inputType"
       data-slot="input"

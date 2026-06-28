@@ -9,6 +9,7 @@ import {
   SoundcloudPage,
   AuthPage,
   ProfilePage,
+  UserProfilePage,
   FriendsPage,
   MessagesPage,
 } from '@/pages'
@@ -29,8 +30,10 @@ const router = createRouter({
         { path: 'room/:id', component: RoomPage },
         { path: 'sound-room/:id', component: SoundRoomPage },
         { path: 'profile', component: ProfilePage },
+        { path: 'users/:id', component: UserProfilePage },
         { path: 'friends', component: FriendsPage },
         { path: 'messages', component: MessagesPage },
+        { path: 'messages/:userId', component: MessagesPage },
       ],
     },
     {

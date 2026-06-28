@@ -10,7 +10,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod config;
 mod auth;
 mod chat;
+mod email;
 mod rooms;
+mod social;
 mod soundcloud;
 mod youtube;
 mod ws;
@@ -31,11 +33,13 @@ async fn main() -> anyhow::Result<()> {
     let settings = config::Settings::from_env();
 
     let auth_repo = auth::MongoAuthRepository::connect(&settings.mongo_url).await?;
+    let social_repo = social::mongo::MongoSocialRepository::connect(&settings.mongo_url).await?;
     tracing::info!("Connected to MongoDB at {}", settings.mongo_url);
 
     let app_state = config::AppContext {
         settings: settings.clone(),
         auth_repo,
+        social_repo,
         room_store: std::sync::Arc::new(RwLock::new(rooms::service::RoomStore::new())),
         chat_store: std::sync::Arc::new(RwLock::new(chat::service::ChatStore::new())),
     };

@@ -1,5 +1,6 @@
 export interface RegisterDto {
   email: string
+  username: string
   password: string
 }
 
@@ -9,8 +10,13 @@ export interface RegisterCheckDto {
 }
 
 export interface LoginDto {
-  email: string
+  login: string
   password: string
+}
+
+export interface UsernameCheckResponse {
+  available: boolean
+  reason?: string
 }
 
 export interface RegisterResponse {
@@ -39,6 +45,7 @@ export interface RefreshTokenResponse {
 }
 
 export interface UpdateProfileDto {
+  username?: string
   firstName?: string
   lastName?: string
   birthDate?: string

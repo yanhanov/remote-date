@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct RegisterDto {
     pub email: String,
+    pub username: String,
     pub password: String,
 }
 
@@ -17,8 +18,22 @@ pub struct RegisterCheckDto {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginDto {
-    pub email: String,
+    pub login: String,
     pub password: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsernameCheckQuery {
+    pub username: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsernameCheckResponse {
+    pub available: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -63,6 +78,7 @@ pub struct RefreshTokenResponse {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateProfileDto {
+    pub username: Option<String>,
     pub first_name: Option<String>,
     pub last_name: Option<String>,
     pub birth_date: Option<String>,

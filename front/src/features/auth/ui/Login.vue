@@ -21,7 +21,7 @@ const emit = defineEmits<{
 
 const router = useRouter()
 
-const email = ref('')
+const login = ref('')
 const password = ref('')
 const isLoading = ref(false)
 const error = ref<string | null>(null)
@@ -30,7 +30,7 @@ const handleLogin = async (e: Event) => {
   e.preventDefault()
   error.value = null
 
-  if (!email.value || !password.value) {
+  if (!login.value || !password.value) {
     error.value = 'Please fill in all fields'
     toast.error('Please fill in all fields')
     return
@@ -40,11 +40,10 @@ const handleLogin = async (e: Event) => {
 
   try {
     await authAPI.login({
-      email: email.value,
+      login: login.value.trim(),
       password: password.value,
     })
 
-    // Обновляем данные пользователя в store
     await authStore.refreshUser()
 
     toast.success('Welcome back!')
@@ -70,14 +69,16 @@ const handleLogin = async (e: Event) => {
         <div v-if="error" class="login-form__error p-3 text-sm text-destructive bg-destructive/10 rounded-md">
           {{ error }}
         </div>
-        <div class="login-form__field login-form__field--email space-y-2">
-          <Label class="login-form__label" for="email">Email</Label>
+        <div class="login-form__field login-form__field--login space-y-2">
+          <Label class="login-form__label" for="login">Email or username</Label>
           <Input
-            id="email"
-            v-model="email"
-            class="login-form__input login-form__input--email"
-            type="email"
-            placeholder="Email"
+            id="login"
+            v-model="login"
+            class="login-form__input login-form__input--login"
+            type="text"
+            name="login"
+            placeholder="Email or username"
+            autocomplete="username"
             required
             :disabled="isLoading"
           />
@@ -90,7 +91,9 @@ const handleLogin = async (e: Event) => {
             class="login-form__input login-form__input--password"
             type="password"
             variant="password"
+            name="password"
             placeholder="Password"
+            autocomplete="current-password"
             required
             :disabled="isLoading"
           />

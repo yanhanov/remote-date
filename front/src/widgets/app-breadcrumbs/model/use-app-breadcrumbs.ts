@@ -50,12 +50,18 @@ export function useAppBreadcrumbs() {
       return crumbs
     }
 
+    if (path.startsWith("/users/")) {
+      crumbs.push({ label: "Friends", to: "/friends" })
+      crumbs.push({ label: "Profile" })
+      return crumbs
+    }
+
     if (path === "/friends") {
       crumbs.push({ label: "Friends" })
       return crumbs
     }
 
-    if (path === "/messages") {
+    if (path === "/messages" || path.startsWith("/messages/")) {
       crumbs.push({ label: "Messages" })
       return crumbs
     }

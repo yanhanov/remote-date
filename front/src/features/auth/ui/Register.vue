@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { watchDebounced } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 import {
   Card,
@@ -14,6 +15,11 @@ import {
 } from '@/shared/ui'
 import { authAPI } from '@/shared/api/auth.api'
 import { authStore } from '@/entities/user'
+import {
+  isValidUsername,
+  normalizeUsername,
+  USERNAME_HINT,
+} from '@/shared/lib/username'
 import VerificationDialog from './VerificationDialog.vue'
 
 const emit = defineEmits<{
@@ -23,6 +29,7 @@ const emit = defineEmits<{
 const router = useRouter()
 
 const email = ref('')
+const username = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const isLoading = ref(false)
@@ -30,14 +37,73 @@ const error = ref<string | null>(null)
 const showVerificationDialog = ref(false)
 const registeredEmail = ref('')
 
+type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid'
+
+const usernameStatus = ref<UsernameStatus>('idle')
+const usernameMessage = ref<string | null>(null)
+
+watchDebounced(
+  username,
+  async (value) => {
+    const normalized = normalizeUsername(value)
+
+    if (!normalized) {
+      usernameStatus.value = 'idle'
+      usernameMessage.value = null
+      return
+    }
+
+    if (!isValidUsername(normalized)) {
+      usernameStatus.value = 'invalid'
+      usernameMessage.value = USERNAME_HINT
+      return
+    }
+
+    usernameStatus.value = 'checking'
+    usernameMessage.value = null
+
+    try {
+      const result = await authAPI.checkUsername(normalized)
+      if (result.available) {
+        usernameStatus.value = 'available'
+        usernameMessage.value = 'Username is available'
+      } else {
+        usernameStatus.value = 'taken'
+        usernameMessage.value = result.reason ?? 'Username is already taken'
+      }
+    } catch {
+      usernameStatus.value = 'idle'
+      usernameMessage.value = null
+    }
+  },
+  { debounce: 400 },
+)
+
+const isUsernameBlocked = () =>
+  usernameStatus.value === 'taken' ||
+  usernameStatus.value === 'invalid' ||
+  usernameStatus.value === 'checking'
+
 const handleRegister = async (e: Event) => {
   e.preventDefault()
   error.value = null
 
-  // Валидация
-  if (!email.value || !password.value || !confirmPassword.value) {
+  if (!email.value || !username.value || !password.value || !confirmPassword.value) {
     error.value = 'Please fill in all fields'
     toast.error('Please fill in all fields')
+    return
+  }
+
+  const normalizedUsername = normalizeUsername(username.value)
+  if (!isValidUsername(normalizedUsername)) {
+    error.value = USERNAME_HINT
+    toast.error(error.value)
+    return
+  }
+
+  if (usernameStatus.value === 'taken') {
+    error.value = usernameMessage.value ?? 'Username is already taken'
+    toast.error(error.value)
     return
   }
 
@@ -58,9 +124,10 @@ const handleRegister = async (e: Event) => {
   try {
     await authAPI.register({
       email: email.value,
+      username: normalizedUsername,
       password: password.value,
     })
-    
+
     registeredEmail.value = email.value
     showVerificationDialog.value = true
     toast.info('Verification code sent to your email')
@@ -95,6 +162,37 @@ const handleDialogClose = () => {
         <div v-if="error" class="register-form__error p-3 text-sm text-destructive bg-destructive/10 rounded-md">
           {{ error }}
         </div>
+        <div class="register-form__field register-form__field--username space-y-2">
+          <Label class="register-form__label" for="register-handle">Username</Label>
+          <Input
+            id="register-handle"
+            v-model="username"
+            class="register-form__input register-form__input--username"
+            type="text"
+            name="register-handle"
+            placeholder="yourname"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            required
+            :disabled="isLoading"
+          />
+          <p
+            v-if="usernameMessage"
+            class="register-form__username-status text-xs"
+            :class="{
+              'text-muted-foreground': usernameStatus === 'checking',
+              'text-green-600 dark:text-green-400': usernameStatus === 'available',
+              'text-destructive': usernameStatus === 'taken' || usernameStatus === 'invalid',
+            }"
+          >
+            {{ usernameMessage }}
+          </p>
+          <p v-else class="register-form__username-hint text-xs text-muted-foreground">
+            Letters, numbers, underscores. 3–30 characters.
+          </p>
+        </div>
         <div class="register-form__field register-form__field--email space-y-2">
           <Label class="register-form__label" for="email">Email</Label>
           <Input
@@ -102,7 +200,9 @@ const handleDialogClose = () => {
             v-model="email"
             class="register-form__input register-form__input--email"
             type="email"
+            name="email"
             placeholder="Email"
+            autocomplete="email"
             required
             :disabled="isLoading"
           />
@@ -115,7 +215,9 @@ const handleDialogClose = () => {
             class="register-form__input register-form__input--password"
             type="password"
             variant="password"
+            name="new-password"
             placeholder="Password"
+            autocomplete="new-password"
             required
             :disabled="isLoading"
           />
@@ -128,12 +230,18 @@ const handleDialogClose = () => {
             class="register-form__input register-form__input--confirm"
             type="password"
             variant="password"
+            name="confirm-password"
             placeholder="Confirm Password"
+            autocomplete="new-password"
             required
             :disabled="isLoading"
           />
         </div>
-        <Button type="submit" class="register-form__submit w-full" :disabled="isLoading">
+        <Button
+          type="submit"
+          class="register-form__submit w-full"
+          :disabled="isLoading || isUsernameBlocked()"
+        >
           {{ isLoading ? 'Registering...' : 'Register' }}
         </Button>
         <div class="register-form__footer space-y-2">
