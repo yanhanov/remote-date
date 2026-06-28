@@ -5,7 +5,9 @@ use chrono::Utc;
 use regex::Regex;
 use uuid::Uuid;
 
-use crate::rooms::models::{CreateRoomDto, RoomType, VideoRoom, VideoState};
+use crate::rooms::models::{
+    CreateRoomDto, RoomType, SoundcloudQueueItem, VideoRoom, VideoState,
+};
 
 #[derive(Debug, Default)]
 pub struct RoomStore {
@@ -66,6 +68,8 @@ impl RoomService {
             soundcloud_title: None,
             soundcloud_artist: None,
             soundcloud_artwork_url: None,
+            soundcloud_queue: None,
+            soundcloud_queue_index: None,
             created_at: Utc::now(),
             current_time: 0.0,
             is_playing: false,
@@ -114,15 +118,9 @@ impl RoomService {
         Some(new_state)
     }
 
-    pub fn add_participant(store: &mut RoomStore, room_id: &str) {
+    pub fn set_participants(store: &mut RoomStore, room_id: &str, count: u32) {
         if let Some(room) = store.rooms.get_mut(room_id) {
-            room.participants = room.participants.saturating_add(1);
-        }
-    }
-
-    pub fn remove_participant(store: &mut RoomStore, room_id: &str) {
-        if let Some(room) = store.rooms.get_mut(room_id) {
-            room.participants = room.participants.saturating_sub(1);
+            room.participants = count;
         }
     }
 
@@ -133,12 +131,28 @@ impl RoomService {
         title: Option<String>,
         artist: Option<String>,
         artwork_url: Option<String>,
+        queue: Option<Vec<SoundcloudQueueItem>>,
+        queue_index: Option<u32>,
     ) {
         if let Some(room) = store.rooms.get_mut(room_id) {
             room.soundcloud_url = Some(url.to_string());
             room.soundcloud_title = title;
             room.soundcloud_artist = artist;
             room.soundcloud_artwork_url = artwork_url;
+            if let Some(q) = queue {
+                room.soundcloud_queue = Some(q);
+            }
+            if let Some(idx) = queue_index {
+                room.soundcloud_queue_index = Some(idx);
+            }
+            room.current_time = 0.0;
+            room.is_playing = false;
+        }
+
+        if let Some(state) = store.states.get_mut(room_id) {
+            state.current_time = 0.0;
+            state.is_playing = false;
+            state.timestamp = chrono::Utc::now().timestamp_millis();
         }
     }
 
@@ -164,4 +178,3 @@ impl RoomService {
         }
     }
 }
-

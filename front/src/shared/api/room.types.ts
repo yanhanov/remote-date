@@ -1,5 +1,15 @@
 export type RoomType = 'youtube' | 'soundcloud'
 
+export interface SoundcloudQueueItem {
+  id: string | number
+  streamUrl: string
+  title?: string | null
+  username?: string | null
+  artworkUrl?: string | null
+  permalinkUrl?: string
+  durationMs?: number
+}
+
 export interface VideoRoom {
   id: string
   type: RoomType
@@ -9,6 +19,8 @@ export interface VideoRoom {
   soundcloudTitle?: string
   soundcloudArtist?: string
   soundcloudArtworkUrl?: string
+  soundcloudQueue?: SoundcloudQueueItem[]
+  soundcloudQueueIndex?: number
   createdAt: string
   currentTime: number
   isPlaying: boolean

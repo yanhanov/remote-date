@@ -53,6 +53,8 @@ enum IncomingEvent {
         title: Option<String>,
         artist: Option<String>,
         artwork_url: Option<String>,
+        queue: Option<Vec<crate::rooms::models::SoundcloudQueueItem>>,
+        queue_index: Option<u32>,
     },
     #[serde(rename_all = "camelCase")]
     VideoChange {
@@ -125,6 +127,34 @@ async fn handle_socket(state: AppContext, socket: WebSocket) {
     cleanup_connection(conn_id, &state).await;
 }
 
+async fn room_connection_count(room_id: &str) -> u32 {
+    let ws_state = WS_STATE.read().await;
+    ws_state
+        .rooms
+        .get(room_id)
+        .map(|set| set.len() as u32)
+        .unwrap_or(0)
+}
+
+async fn sync_room_participants(app_state: &AppContext, room_id: &str) -> u32 {
+    let count = room_connection_count(room_id).await;
+    let mut store = app_state.room_store.write().await;
+    RoomService::set_participants(&mut store, room_id, count);
+    count
+}
+
+async fn broadcast_participants(room_id: &str, participants: u32, event: &str) {
+    broadcast_to_room(
+        room_id,
+        serde_json::json!({
+            "event": event,
+            "roomId": room_id,
+            "participants": participants,
+        }),
+    )
+    .await;
+}
+
 async fn handle_event(
     app_state: &AppContext,
     conn_id: Uuid,
@@ -132,20 +162,20 @@ async fn handle_event(
 ) {
     match event {
         IncomingEvent::RoomJoin { room_id } => {
-            let mut rooms = app_state.room_store.write().await;
-            if RoomService::get_room(&rooms, &room_id).is_none() {
-                send_to_conn(
-                    conn_id,
-                    serde_json::json!({
-                        "event": "room:error",
-                        "message": "Room not found"
-                    }),
-                )
-                .await;
-                return;
+            {
+                let rooms = app_state.room_store.read().await;
+                if RoomService::get_room(&rooms, &room_id).is_none() {
+                    send_to_conn(
+                        conn_id,
+                        serde_json::json!({
+                            "event": "room:error",
+                            "message": "Room not found"
+                        }),
+                    )
+                    .await;
+                    return;
+                }
             }
-
-            RoomService::add_participant(&mut rooms, &room_id);
 
             {
                 let mut ws_state = WS_STATE.write().await;
@@ -156,7 +186,9 @@ async fn handle_event(
                     .insert(conn_id);
             }
 
-            // send current video state to new participant
+            let participants = sync_room_participants(app_state, &room_id).await;
+
+            let rooms = app_state.room_store.read().await;
             if let Some(state) = RoomService::get_room_state(&rooms, &room_id) {
                 send_to_conn(
                     conn_id,
@@ -168,45 +200,26 @@ async fn handle_event(
                 .await;
             }
 
-            if let Some(room) = RoomService::get_room(&rooms, &room_id) {
-                broadcast_to_room_except(
-                    &room_id,
-                    conn_id,
-                    serde_json::json!({
-                        "event": "room:user_joined",
-                        "roomId": room_id,
-                        "participants": room.participants,
-                    }),
-                )
-                .await;
-            }
+            broadcast_participants(&room_id, participants, "room:user_joined").await;
         }
         IncomingEvent::RoomLeave { room_id } => {
-            let mut rooms = app_state.room_store.write().await;
-            RoomService::remove_participant(&mut rooms, &room_id);
-            if let Some(room) = RoomService::get_room(&rooms, &room_id) {
-                broadcast_to_room_except(
-                    &room_id,
-                    conn_id,
-                    serde_json::json!({
-                        "event": "room:user_left",
-                        "roomId": room_id,
-                        "participants": room.participants,
-                    }),
-                )
-                .await;
-            }
-
             let mut ws_state = WS_STATE.write().await;
+            let mut room_emptied = false;
             if let Some(set) = ws_state.rooms.get_mut(&room_id) {
                 set.remove(&conn_id);
                 if set.is_empty() {
                     ws_state.rooms.remove(&room_id);
-
-                    // when last user leaves, clear chat history
-                    let mut chat_store = app_state.chat_store.write().await;
-                    ChatService::clear_room(&mut chat_store, &room_id);
+                    room_emptied = true;
                 }
+            }
+            drop(ws_state);
+
+            let participants = sync_room_participants(app_state, &room_id).await;
+            broadcast_participants(&room_id, participants, "room:user_left").await;
+
+            if room_emptied {
+                let mut chat_store = app_state.chat_store.write().await;
+                ChatService::clear_room(&mut chat_store, &room_id);
             }
         }
         IncomingEvent::VideoPlay {
@@ -298,6 +311,10 @@ async fn handle_event(
             }
 
             let mut rooms = app_state.room_store.write().await;
+            let is_playing = RoomService::get_room(&rooms, &room_id)
+                .map(|r| r.is_playing)
+                .unwrap_or(false);
+
             if RoomService::get_room(&rooms, &room_id).is_none() {
                 send_room_not_found(conn_id).await;
                 return;
@@ -308,7 +325,7 @@ async fn handle_event(
                 &room_id,
                 Some(crate::rooms::models::VideoState {
                     current_time,
-                    is_playing: false,
+                    is_playing,
                     timestamp: chrono::Utc::now().timestamp_millis(),
                 }),
             );
@@ -324,12 +341,15 @@ async fn handle_event(
                     serde_json::json!({ "event": "video:seek", "payload": payload }),
                 )
                 .await;
-                broadcast_to_room_except(
-                    &room_id,
-                    conn_id,
-                    serde_json::json!({ "event": "video:pause", "payload": payload }),
-                )
-                .await;
+
+                if !st.is_playing {
+                    broadcast_to_room_except(
+                        &room_id,
+                        conn_id,
+                        serde_json::json!({ "event": "video:pause", "payload": payload }),
+                    )
+                    .await;
+                }
             }
         }
         IncomingEvent::VideoSyncRequest { room_id } => {
@@ -353,6 +373,8 @@ async fn handle_event(
             title,
             artist,
             artwork_url,
+            queue,
+            queue_index,
         } => {
             let mut rooms = app_state.room_store.write().await;
             let room = match RoomService::get_room(&rooms, &room_id) {
@@ -394,6 +416,8 @@ async fn handle_event(
                 title.clone(),
                 artist.clone(),
                 artwork_url.clone(),
+                queue.clone(),
+                queue_index,
             );
 
             broadcast_to_room_except(
@@ -404,7 +428,9 @@ async fn handle_event(
                     "trackUrl": track_url,
                     "title": title,
                     "artist": artist,
-                    "artworkUrl": artwork_url
+                    "artworkUrl": artwork_url,
+                    "queue": queue,
+                    "queueIndex": queue_index
                 }),
             )
             .await;
@@ -503,24 +529,35 @@ async fn handle_event(
 }
 
 async fn cleanup_connection(conn_id: Uuid, app_state: &AppContext) {
-    let mut ws_state = WS_STATE.write().await;
-
     let mut affected_rooms = Vec::new();
-    for (room_id, set) in ws_state.rooms.iter_mut() {
-        if set.remove(&conn_id) {
-            affected_rooms.push(room_id.clone());
+    let mut emptied_rooms = Vec::new();
+
+    {
+        let mut ws_state = WS_STATE.write().await;
+        for (room_id, set) in ws_state.rooms.iter_mut() {
+            if set.remove(&conn_id) {
+                affected_rooms.push(room_id.clone());
+                if set.is_empty() {
+                    emptied_rooms.push(room_id.clone());
+                }
+            }
         }
+
+        for room_id in &emptied_rooms {
+            ws_state.rooms.remove(room_id);
+        }
+
+        ws_state.peers.remove(&conn_id);
     }
 
-    ws_state.peers.remove(&conn_id);
-    ws_state.rooms.retain(|_, set| !set.is_empty());
-
-    drop(ws_state);
-
-    // For each room where this connection was present, decrease participant counter
-    let mut rooms_store = app_state.room_store.write().await;
     for room_id in affected_rooms {
-        RoomService::remove_participant(&mut rooms_store, &room_id);
+        let participants = sync_room_participants(app_state, &room_id).await;
+        broadcast_participants(&room_id, participants, "room:user_left").await;
+    }
+
+    for room_id in emptied_rooms {
+        let mut chat_store = app_state.chat_store.write().await;
+        ChatService::clear_room(&mut chat_store, &room_id);
     }
 }
 

@@ -1,9 +1,7 @@
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { roomAPI } from '@/shared/api/room.api'
 import { socketService } from '@/shared/api/socket.service'
 import type { VideoRoom } from '@/shared/api/room.types'
-
-let listenersBound = false
 
 export function useRoom(roomId: string) {
   const room = ref<VideoRoom | null>(null)
@@ -14,10 +12,12 @@ export function useRoom(roomId: string) {
   const loadedAt = ref(0)
 
   const onUserJoined = (data: { roomId: string; participants: number }) => {
+    if (data.roomId !== roomId) return
     participants.value = data.participants
   }
 
   const onUserLeft = (data: { roomId: string; participants: number }) => {
+    if (data.roomId !== roomId) return
     participants.value = data.participants
   }
 
@@ -26,19 +26,15 @@ export function useRoom(roomId: string) {
   }
 
   function bindSocketListeners() {
-    if (listenersBound) return
     socketService.on('room:user_joined', onUserJoined)
     socketService.on('room:user_left', onUserLeft)
     socketService.on('room:error', onRoomError)
-    listenersBound = true
   }
 
   function unbindSocketListeners() {
-    if (!listenersBound) return
     socketService.off('room:user_joined', onUserJoined)
     socketService.off('room:user_left', onUserLeft)
     socketService.off('room:error', onRoomError)
-    listenersBound = false
   }
 
   async function load() {
@@ -51,14 +47,18 @@ export function useRoom(roomId: string) {
 
   function join() {
     socketService.connect()
-    socketService.emit('room:join', roomId)
     bindSocketListeners()
+    socketService.emit('room:join', roomId)
   }
 
   function leave() {
     socketService.emit('room:leave', roomId)
     unbindSocketListeners()
   }
+
+  onUnmounted(() => {
+    unbindSocketListeners()
+  })
 
   return {
     room,

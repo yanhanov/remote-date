@@ -293,6 +293,16 @@ class SocketService {
           title: data.title,
           artist: data.artist,
           artworkUrl: data.artworkUrl,
+          queue: data.queue?.map((t) => ({
+            id: t.id,
+            streamUrl: t.streamUrl,
+            title: t.title,
+            username: t.username,
+            artworkUrl: t.artworkUrl,
+            permalinkUrl: t.permalinkUrl,
+            durationMs: t.durationMs,
+          })),
+          queueIndex: data.queueIndex,
         });
         break;
       }

@@ -12,6 +12,16 @@ interface SoundCloudTrackRaw {
   stream_url?: string | null;
 }
 
+interface SoundCloudPlaylistRaw {
+  id: number;
+  title: string;
+  username?: string;
+  artwork_url?: string | null;
+  permalink_url?: string;
+  track_count?: number;
+  kind: "playlist";
+}
+
 export interface SoundCloudTrack {
   id: number;
   title: string;
@@ -54,6 +64,18 @@ class SoundCloudAPI {
     };
   }
 
+  private mapPlaylist(raw: SoundCloudPlaylistRaw): SoundCloudPlaylist {
+    return {
+      id: raw.id,
+      title: raw.title,
+      username: raw.username,
+      artworkUrl: raw.artwork_url,
+      permalinkUrl: raw.permalink_url ?? "",
+      trackCount: raw.track_count,
+      kind: "playlist",
+    };
+  }
+
   async searchTracks(
     query: string,
     limit = 5,
@@ -72,10 +94,15 @@ class SoundCloudAPI {
     }
 
     const data = (await res.json()) as {
-      items: SoundCloudTrackRaw[];
-      kind?: string;
+      items: (SoundCloudTrackRaw | SoundCloudPlaylistRaw)[];
+      kind?: "tracks" | "playlists";
     };
-    return data.items.map((item) => this.mapTrack(item));
+
+    if (data.kind === "playlists") {
+      return data.items.map((item) => this.mapPlaylist(item as SoundCloudPlaylistRaw));
+    }
+
+    return data.items.map((item) => this.mapTrack(item as SoundCloudTrackRaw));
   }
 
   async getTrack(trackId: number): Promise<SoundCloudTrack> {

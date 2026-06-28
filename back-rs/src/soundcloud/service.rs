@@ -55,6 +55,31 @@ pub struct Item {
     pub stream_url: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct Playlist {
+    id: i64,
+    title: String,
+    user: Option<TrackUser>,
+    #[serde(rename = "artwork_url")]
+    artwork_url: Option<String>,
+    #[serde(rename = "permalink_url")]
+    permalink_url: Option<String>,
+    #[serde(rename = "track_count")]
+    track_count: Option<i32>,
+    tracks: Option<Vec<Track>>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct PlaylistItem {
+    pub id: i64,
+    pub title: String,
+    pub username: Option<String>,
+    pub artwork_url: Option<String>,
+    pub permalink_url: Option<String>,
+    pub track_count: Option<i32>,
+    pub kind: &'static str,
+}
+
 pub async fn search_tracks(
     client: &reqwest::Client,
     client_id: &str,
@@ -93,6 +118,92 @@ pub async fn search_tracks(
             Ok(url) => url,
             Err(err) => {
                 tracing::warn!("Failed to resolve SoundCloud stream for track {}: {err}", track.id);
+                None
+            }
+        };
+        items.push(track_to_item(track, stream_url));
+    }
+
+    Ok(items)
+}
+
+pub async fn search_playlists(
+    client: &reqwest::Client,
+    client_id: &str,
+    q: &str,
+    limit: u32,
+) -> Result<Vec<PlaylistItem>> {
+    let url = format!("{SOUNDCLOUD_API_URL}/search/playlists");
+    let resp = client
+        .get(&url)
+        .query(&[
+            ("q", q),
+            ("client_id", client_id),
+            ("limit", &limit.to_string()),
+        ])
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        let detail = if text.trim().is_empty() {
+            format!("HTTP {status}")
+        } else {
+            text
+        };
+        return Err(anyhow!("SoundCloud playlist search failed ({detail})"));
+    }
+
+    let data: SearchResponse<Playlist> = resp.json().await?;
+    let collection = data.collection.unwrap_or_default();
+
+    Ok(collection
+        .into_iter()
+        .map(playlist_to_search_item)
+        .collect())
+}
+
+pub async fn get_playlist_tracks(
+    client: &reqwest::Client,
+    client_id: &str,
+    playlist_id: i64,
+) -> Result<Vec<Item>> {
+    let url = format!("{SOUNDCLOUD_API_URL}/playlists/{playlist_id}");
+    let resp = client
+        .get(&url)
+        .query(&[("client_id", client_id)])
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        let detail = if text.trim().is_empty() {
+            format!("HTTP {status}")
+        } else {
+            text
+        };
+        return Err(anyhow!("SoundCloud playlist fetch failed ({detail})"));
+    }
+
+    let playlist: Playlist = resp.json().await?;
+    let mut tracks = playlist.tracks.unwrap_or_default();
+
+    if tracks.is_empty() {
+        tracks = fetch_playlist_track_list(client, client_id, playlist_id).await?;
+    }
+
+    let mut items = Vec::new();
+    for track in tracks {
+        let stream_url = match resolve_stream_url_from_media(client, &track.media, client_id).await
+        {
+            Ok(url) => url,
+            Err(err) => {
+                tracing::warn!(
+                    "Failed to resolve SoundCloud stream for playlist track {}: {err}",
+                    track.id
+                );
                 None
             }
         };
@@ -182,6 +293,33 @@ async fn resolve_stream_url_from_media(
     Ok(data.url)
 }
 
+async fn fetch_playlist_track_list(
+    client: &reqwest::Client,
+    client_id: &str,
+    playlist_id: i64,
+) -> Result<Vec<Track>> {
+    let url = format!("{SOUNDCLOUD_API_URL}/playlists/{playlist_id}/tracks");
+    let resp = client
+        .get(&url)
+        .query(&[("client_id", client_id)])
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        let detail = if text.trim().is_empty() {
+            format!("HTTP {status}")
+        } else {
+            text
+        };
+        return Err(anyhow!("SoundCloud playlist tracks fetch failed ({detail})"));
+    }
+
+    let data: SearchResponse<Track> = resp.json().await?;
+    Ok(data.collection.unwrap_or_default())
+}
+
 fn track_to_item(track: Track, stream_url: Option<String>) -> Item {
     Item {
         id: track.id,
@@ -193,6 +331,20 @@ fn track_to_item(track: Track, stream_url: Option<String>) -> Item {
         permalink_url: track.permalink_url,
         duration_ms: track.duration,
         stream_url,
+    }
+}
+
+fn playlist_to_search_item(playlist: Playlist) -> PlaylistItem {
+    PlaylistItem {
+        id: playlist.id,
+        title: playlist.title,
+        username: playlist.user.as_ref().and_then(|u| u.username.clone()),
+        artwork_url: playlist
+            .artwork_url
+            .or_else(|| playlist.user.as_ref().and_then(|u| u.avatar_url.clone())),
+        permalink_url: playlist.permalink_url,
+        track_count: playlist.track_count,
+        kind: "playlist",
     }
 }
 

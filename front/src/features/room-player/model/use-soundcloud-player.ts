@@ -1,17 +1,48 @@
 import { ref, nextTick, type Ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { socketService } from '@/shared/api/socket.service'
-import type { VideoRoom, VideoState } from '@/shared/api/room.types'
+import type { VideoRoom, VideoState, SoundcloudQueueItem } from '@/shared/api/room.types'
 import {
   soundCloudAPI,
   type SoundCloudTrack,
   type SoundCloudPlaylist,
 } from '@/shared/api/soundcloud.api'
-import type { SoundTrack } from './soundcloud.types'
+import type { SoundTrack, SoundcloudTrackChangePayload } from './soundcloud.types'
 
 const MAX_AUDIO_STATE_RETRIES = 20
+const LOCAL_ACTION_MS = 500
+const SEEK_PAUSE_DEBOUNCE_MS = 400
+const SYNC_TIME_THRESHOLD_SEC = 1.5
 
-export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>) {
+function mapQueueItem(t: SoundcloudQueueItem): SoundTrack {
+  return {
+    id: t.id,
+    title: t.title ?? 'Untitled',
+    username: t.username ?? undefined,
+    artworkUrl: t.artworkUrl ?? undefined,
+    permalinkUrl: t.permalinkUrl ?? '',
+    durationMs: t.durationMs ?? 0,
+    streamUrl: t.streamUrl,
+  }
+}
+
+function mapQueueToPayload(queue: SoundTrack[]) {
+  return queue.map((t) => ({
+    id: t.id,
+    streamUrl: t.streamUrl ?? '',
+    title: t.title ?? null,
+    username: t.username ?? null,
+    artworkUrl: t.artworkUrl ?? null,
+    permalinkUrl: t.permalinkUrl,
+    durationMs: t.durationMs,
+  }))
+}
+
+export function useSoundcloudPlayer(
+  roomId: string,
+  room: Ref<VideoRoom | null>,
+  roomLoadedAt: Ref<number>,
+) {
   const currentTrackUrl = ref<string | null>(null)
   const currentTrackTitle = ref<string | null>(null)
   const currentTrackArtist = ref<string | null>(null)
@@ -29,7 +60,28 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
 
   let audioStateRetryCount = 0
   let lastRemoteSeekAt = 0
+  let lastAppliedStateTs = 0
+  let pendingApplyTs = 0
+  let initialSyncApplied = false
+  let pendingRemoteAutoplay = false
   let listenersBound = false
+
+  function setLocalActionFlag() {
+    isLocalAction.value = true
+    setTimeout(() => {
+      isLocalAction.value = false
+    }, LOCAL_ACTION_MS)
+  }
+
+  function applyQueueFromPayload(
+    queue: SoundcloudTrackChangePayload['queue'],
+    queueIndex?: number,
+  ) {
+    if (!queue?.length) return
+
+    trackQueue.value = queue.map(mapQueueItem)
+    currentQueueIndex.value = queueIndex ?? 0
+  }
 
   function initFromRoom() {
     if (!room.value?.soundcloudUrl) return
@@ -38,6 +90,29 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
     currentTrackTitle.value = room.value.soundcloudTitle ?? 'Current track'
     currentTrackArtist.value = room.value.soundcloudArtist ?? null
     currentArtworkUrl.value = room.value.soundcloudArtworkUrl ?? null
+
+    if (room.value.soundcloudQueue?.length) {
+      trackQueue.value = room.value.soundcloudQueue.map(mapQueueItem)
+      currentQueueIndex.value = room.value.soundcloudQueueIndex ?? 0
+    } else {
+      trackQueue.value = [
+        {
+          id: room.value.soundcloudUrl,
+          permalinkUrl: room.value.soundcloudUrl,
+          streamUrl: room.value.soundcloudUrl,
+          title: currentTrackTitle.value ?? undefined,
+          username: currentTrackArtist.value ?? undefined,
+          artworkUrl: currentArtworkUrl.value ?? undefined,
+          durationMs: 0,
+        },
+      ]
+      currentQueueIndex.value = 0
+    }
+
+    if ((room.value.currentTime ?? 0) > 0) {
+      initialSyncApplied = true
+      lastAppliedStateTs = roomLoadedAt.value
+    }
   }
 
   function emitTrackChange() {
@@ -47,15 +122,7 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
       title: currentTrackTitle.value,
       artist: currentTrackArtist.value,
       artworkUrl: currentArtworkUrl.value,
-      queue: trackQueue.value.map((t) => ({
-        id: t.id,
-        streamUrl: t.streamUrl ?? '',
-        title: t.title ?? null,
-        username: t.username ?? null,
-        artworkUrl: t.artworkUrl ?? null,
-        permalinkUrl: t.permalinkUrl,
-        durationMs: t.durationMs,
-      })),
+      queue: mapQueueToPayload(trackQueue.value),
       queueIndex: currentQueueIndex.value ?? 0,
     })
   }
@@ -70,6 +137,26 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
     } catch (e) {
       console.error('Failed to autoplay', e)
     }
+  }
+
+  function applyInitialRoomState() {
+    if (!room.value || initialSyncApplied || !audioRef.value || !currentTrackUrl.value) return
+
+    const audio = audioRef.value
+    const targetTime = Math.max(0, room.value.currentTime ?? 0)
+    const playing = room.value.isPlaying ?? false
+
+    setLocalActionFlag()
+    audio.currentTime = targetTime
+
+    if (playing) {
+      void audio.play()
+    } else {
+      audio.pause()
+    }
+
+    initialSyncApplied = true
+    lastAppliedStateTs = roomLoadedAt.value
   }
 
   async function selectTrack(track: SoundCloudTrack, queue: SoundTrack[]) {
@@ -139,7 +226,7 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
     }
   }
 
-  function loadFromUrl(url: string) {
+  async function loadFromUrl(url: string) {
     if (!url.trim()) {
       toast.error('Please enter a SoundCloud track URL')
       return
@@ -147,15 +234,29 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
 
     const value = url.trim()
 
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-      currentTrackUrl.value = value
-      currentTrackTitle.value = 'Custom URL'
-      currentTrackArtist.value = null
-      toast.success('Track loaded. You can control playback in the player.')
+    if (!value.startsWith('http://') && !value.startsWith('https://')) {
+      toast.error('Right now only direct SoundCloud track URLs are supported.')
       return
     }
 
-    toast.error('Right now only direct SoundCloud track URLs are supported.')
+    currentTrackUrl.value = value
+    currentTrackTitle.value = 'Custom URL'
+    currentTrackArtist.value = null
+    currentArtworkUrl.value = null
+    trackQueue.value = [
+      {
+        id: value,
+        permalinkUrl: value,
+        streamUrl: value,
+        title: currentTrackTitle.value ?? undefined,
+        durationMs: 0,
+      },
+    ]
+    currentQueueIndex.value = 0
+
+    emitTrackChange()
+    toast.success('Track loaded. You can control playback in the player.')
+    await autoplay()
   }
 
   async function loadFromChat(url: string) {
@@ -188,7 +289,7 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
     if (!audio || !currentTrackUrl.value) return
 
     if (audio.paused) {
-      audio.play()
+      void audio.play()
     } else {
       audio.pause()
     }
@@ -201,6 +302,17 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
     duration.value = audio.duration || 0
     volume.value = (audio.volume ?? 1) * 100
     muted.value = audio.muted
+
+    applyInitialRoomState()
+  }
+
+  function onCanPlay() {
+    if (pendingRemoteAutoplay) {
+      pendingRemoteAutoplay = false
+      void autoplay()
+    } else {
+      applyInitialRoomState()
+    }
   }
 
   function onTimeUpdate() {
@@ -279,27 +391,26 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
     if (!audio || !currentTrackUrl.value) return
 
     try {
-      isLocalAction.value = true
-      audio.currentTime = Math.max(0, targetTime)
+      setLocalActionFlag()
+
+      const timeDiff = Math.abs((audio.currentTime || 0) - targetTime)
+      if (timeDiff > SYNC_TIME_THRESHOLD_SEC) {
+        audio.currentTime = Math.max(0, targetTime)
+      }
 
       if (playing) {
-        audio.play()
+        void audio.play()
       } else {
         audio.pause()
       }
-
-      setTimeout(() => {
-        isLocalAction.value = false
-      }, 500)
     } catch (e) {
       console.error('Error applying remote audio state:', e)
-      setTimeout(() => {
-        isLocalAction.value = false
-      }, 500)
     }
   }
 
   function handleAudioState(state: VideoState) {
+    if (state.timestamp < roomLoadedAt.value - 2000) return
+
     const audio = audioRef.value
     if (!audio || !currentTrackUrl.value) {
       audioStateRetryCount++
@@ -312,12 +423,20 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
       return
     }
 
-    audioStateRetryCount = 0
+    if (state.timestamp <= lastAppliedStateTs) return
+    if (pendingApplyTs === state.timestamp) return
 
-    const delay = (Date.now() - state.timestamp) / 1000
+    audioStateRetryCount = 0
+    pendingApplyTs = state.timestamp
+
+    const ageSec = (Date.now() - state.timestamp) / 1000
+    const delay = state.isPlaying ? Math.min(ageSec, 5) : Math.min(ageSec, 1)
     const targetTime = Math.max(0, state.currentTime + delay)
 
     applyRemoteState(targetTime, state.isPlaying)
+    lastAppliedStateTs = state.timestamp
+    initialSyncApplied = true
+    pendingApplyTs = 0
   }
 
   function handleAudioPlay(data: { currentTime: number; timestamp: number }) {
@@ -334,7 +453,7 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
     const audio = audioRef.value
     if (!audio || !currentTrackUrl.value || isLocalAction.value) return
 
-    if (Date.now() - lastRemoteSeekAt < 400) return
+    if (Date.now() - lastRemoteSeekAt < SEEK_PAUSE_DEBOUNCE_MS) return
 
     const networkDelay = (Date.now() - data.timestamp) / 1000
     const targetTime = Math.max(0, data.currentTime + networkDelay)
@@ -354,40 +473,27 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
     applyRemoteState(targetTime, isPlaying.value)
   }
 
-  function handleTrackChange(data: {
-    trackUrl: string
-    title?: string
-    artist?: string
-    artworkUrl?: string
-    queue?: {
-      id: string | number
-      streamUrl: string
-      title?: string | null
-      username?: string | null
-      artworkUrl?: string | null
-      permalinkUrl?: string
-      durationMs?: number
-    }[]
-    queueIndex?: number
-  }) {
+  async function handleTrackChange(data: SoundcloudTrackChangePayload) {
     if (!data.trackUrl) return
 
-    currentTrackUrl.value = data.trackUrl
     currentTrackTitle.value = data.title ?? 'Shared track'
     currentTrackArtist.value = data.artist ?? null
     currentArtworkUrl.value = data.artworkUrl ?? null
+    applyQueueFromPayload(data.queue, data.queueIndex)
 
-    if (data.queue?.length) {
-      trackQueue.value = data.queue.map((t) => ({
-        id: t.id,
-        title: t.title ?? undefined,
-        username: t.username ?? undefined,
-        artworkUrl: t.artworkUrl ?? undefined,
-        permalinkUrl: t.permalinkUrl ?? '',
-        durationMs: t.durationMs ?? 0,
-        streamUrl: t.streamUrl,
-      })) as SoundTrack[]
-      currentQueueIndex.value = data.queueIndex ?? 0
+    const urlChanged = data.trackUrl !== currentTrackUrl.value
+    if (!urlChanged) return
+
+    pendingRemoteAutoplay = true
+    currentTrackUrl.value = data.trackUrl
+    lastAppliedStateTs = 0
+
+    await nextTick()
+
+    const audio = audioRef.value
+    if (audio && audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+      pendingRemoteAutoplay = false
+      await autoplay()
     }
   }
 
@@ -416,6 +522,13 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
     const nextIndex = currentQueueIndex.value + 1
     if (nextIndex >= trackQueue.value.length) {
       isPlaying.value = false
+      const audio = audioRef.value
+      if (audio && !isLocalAction.value) {
+        socketService.emit('video:pause', {
+          roomId,
+          currentTime: audio.currentTime || 0,
+        })
+      }
       return
     }
 
@@ -479,6 +592,11 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
 
   function teardown() {
     unbindSocketListeners()
+    audioStateRetryCount = 0
+    lastAppliedStateTs = 0
+    pendingApplyTs = 0
+    initialSyncApplied = false
+    pendingRemoteAutoplay = false
   }
 
   return {
@@ -501,6 +619,7 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
     loadFromChat,
     togglePlay,
     onLoadedMetadata,
+    onCanPlay,
     onTimeUpdate,
     onPlay,
     onPause,

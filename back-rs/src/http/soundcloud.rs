@@ -13,7 +13,7 @@ pub fn router() -> Router<AppContext> {
     Router::new()
         .route("/search", get(search_tracks))
         .route("/tracks/{id}", get(get_track))
-        .route("/playlist/{id}", get(playlist_not_implemented))
+        .route("/playlist/{id}", get(get_playlist))
 }
 
 #[derive(Debug, Deserialize)]
@@ -51,18 +51,25 @@ async fn search_tracks(
             }
         };
 
+    let client = reqwest::Client::new();
+
     if filter == "playlists" {
-        // For now, mirror Node behavior partially by returning 502 for playlists,
-        // or this could be implemented in the same way as tracks.
-        return (
-            axum::http::StatusCode::NOT_IMPLEMENTED,
-            Json(serde_json::json!({
-                "error": "Playlists search is not yet implemented in Rust backend"
-            })),
-        );
+        match service::search_playlists(&client, &client_id, &q, limit).await {
+            Ok(items) => {
+                return (
+                    axum::http::StatusCode::OK,
+                    Json(serde_json::json!({ "items": items, "kind": "playlists" })),
+                );
+            }
+            Err(err) => {
+                return (
+                    axum::http::StatusCode::BAD_GATEWAY,
+                    Json(serde_json::json!({ "error": err.to_string() })),
+                );
+            }
+        }
     }
 
-    let client = reqwest::Client::new();
     match service::search_tracks(&client, &client_id, &q, limit).await {
         Ok(items) => (
             axum::http::StatusCode::OK,
@@ -103,13 +110,33 @@ async fn get_track(
     }
 }
 
-async fn playlist_not_implemented() -> (axum::http::StatusCode, Json<serde_json::Value>) {
-    (
-        axum::http::StatusCode::NOT_IMPLEMENTED,
-        Json(serde_json::json!({
-            "error": "Playlist endpoint is not yet implemented in Rust backend"
-        })),
-    )
+async fn get_playlist(
+    State(_state): State<AppContext>,
+    Path(id): Path<i64>,
+) -> (axum::http::StatusCode, Json<serde_json::Value>) {
+    let client_id = match std::env::var("SOUNDCLOUD_CLIENT_ID") {
+        Ok(v) => v,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": "SOUNDCLOUD_CLIENT_ID is not configured on the server"
+                })),
+            );
+        }
+    };
+
+    let client = reqwest::Client::new();
+    match service::get_playlist_tracks(&client, &client_id, id).await {
+        Ok(items) => (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({ "items": items })),
+        ),
+        Err(err) => (
+            axum::http::StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({ "error": err.to_string() })),
+        ),
+    }
 }
 
 

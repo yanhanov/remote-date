@@ -17,11 +17,11 @@ const router = useRouter()
 
 const roomId = route.params.id as string
 
-const { room, loading, error, participants, load, join, leave } = useRoom(roomId)
+const { room, loading, error, participants, loadedAt, load, join, leave } = useRoom(roomId)
 
 const { messages, newMessage, send, sendFile, currentUserName } = useChat(roomId)
 
-const player = useSoundcloudPlayer(roomId, room)
+const player = useSoundcloudPlayer(roomId, room, loadedAt)
 
 const {
   currentTrackUrl,
@@ -42,6 +42,7 @@ const {
   loadFromChat,
   togglePlay,
   onLoadedMetadata,
+  onCanPlay,
   onTimeUpdate,
   onPlay,
   onPause,
@@ -177,6 +178,7 @@ onBeforeRouteLeave(() => {
       class="hidden"
       :src="currentTrackUrl || undefined"
       @loadedmetadata="onLoadedMetadata"
+      @canplay="onCanPlay"
       @timeupdate="onTimeUpdate"
       @play="onPlay"
       @pause="onPause"
