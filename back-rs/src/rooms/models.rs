@@ -35,6 +35,7 @@ pub struct VideoState {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateRoomDto {
     pub youtube_url: Option<String>,
     pub soundcloud_url: Option<String>,
