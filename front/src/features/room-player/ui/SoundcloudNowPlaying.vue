@@ -10,7 +10,7 @@ defineProps<{
 
 <template>
   <section
-    class="soundcloud-now-playing flex min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-border/60 bg-gradient-to-b from-card/50 to-card/20 p-6 text-center"
+    class="soundcloud-now-playing relative z-0 flex min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-border/60 bg-gradient-to-b from-card/50 to-card/20 p-6 text-center"
   >
     <div
       class="soundcloud-now-playing__artwork mb-4 flex size-44 items-center justify-center overflow-hidden rounded-2xl bg-muted/40 shadow-sm sm:size-52"

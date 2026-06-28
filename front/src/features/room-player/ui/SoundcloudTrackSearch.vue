@@ -15,6 +15,7 @@ import type { SoundTrack } from '../model/soundcloud.types'
 defineProps<{
   roomId: string
   participants: number
+  isSelectingTrack?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -38,7 +39,12 @@ async function searchSuggestions(query: string) {
     isSearching.value = true
     const filter = searchType.value === 'album' ? 'playlists' : 'tracks'
     const limit = searchType.value === 'album' ? 5 : 20
-    suggestions.value = await soundCloudAPI.searchTracks(query, limit, filter)
+    const items = await soundCloudAPI.searchTracks(query, limit, filter)
+    suggestions.value = [...items].sort((a, b) => {
+      const playable = (item: SoundCloudTrack | SoundCloudPlaylist) =>
+        'streamUrl' in item && item.streamUrl ? 0 : 1
+      return playable(a) - playable(b)
+    })
   } catch (e: unknown) {
     console.error(e)
     toast.error(e instanceof Error ? e.message : 'Failed to search')
@@ -63,14 +69,24 @@ watch([searchQuery, searchType], ([val]) => {
   }, 500)
 })
 
+function handleItemClick(item: SoundCloudTrack | SoundCloudPlaylist) {
+  const isPlaylist = 'kind' in item && item.kind === 'playlist'
+  if (isPlaylist) {
+    pickPlaylist(item)
+  } else {
+    pickTrack(item as SoundCloudTrack)
+  }
+}
+
 function pickTrack(track: SoundCloudTrack) {
   const trackItems = suggestions.value.filter(
-    (s): s is SoundCloudTrack => 'streamUrl' in s && s.streamUrl != null,
+    (s): s is SoundCloudTrack => !('kind' in s && s.kind === 'playlist'),
   )
-  const selectedIndex = trackItems.findIndex((t) => t.permalinkUrl === track.permalinkUrl)
+  const selectedIndex = trackItems.findIndex((t) => t.id === track.id)
   const queue = selectedIndex !== -1 ? trackItems.slice(selectedIndex) : [track]
 
   suggestions.value = []
+  searchQuery.value = ''
   emit('select-track', track, queue)
 }
 
@@ -85,7 +101,10 @@ function submitSearch() {
 </script>
 
 <template>
-  <section class="soundcloud-track-search shrink-0 rounded-xl border border-border/60 bg-card/40 p-4">
+  <section
+    class="soundcloud-track-search relative shrink-0 rounded-xl border border-border/60 bg-card/40 p-4"
+    :class="{ 'soundcloud-track-search--open z-30': suggestions.length }"
+  >
     <header
       class="soundcloud-track-search__header mb-4 flex items-center justify-between gap-3"
     >
@@ -131,7 +150,7 @@ function submitSearch() {
           class="soundcloud-track-search__icon-wrap pointer-events-none absolute left-3 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center text-muted-foreground"
         >
           <Loader2
-            v-if="isSearching"
+            v-if="isSearching || isSelectingTrack"
             class="soundcloud-track-search__search-icon soundcloud-track-search__search-icon--loading size-4 animate-spin"
           />
           <Search v-else class="soundcloud-track-search__search-icon size-4" />
@@ -151,17 +170,13 @@ function submitSearch() {
 
       <ul
         v-if="suggestions.length"
-        class="soundcloud-track-search__suggestions absolute left-0 right-0 top-full z-10 mt-2 max-h-64 overflow-y-auto rounded-xl border border-border/60 bg-card/95 p-1 shadow-lg backdrop-blur-sm"
+        class="soundcloud-track-search__suggestions absolute left-0 right-0 top-full z-40 mt-2 max-h-64 overflow-y-auto rounded-xl border border-border/60 bg-card/95 p-1 shadow-lg backdrop-blur-sm"
       >
         <li
           v-for="item in suggestions"
           :key="item.id"
           class="soundcloud-track-search__suggestion flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted/50"
-          @click="
-            'kind' in item && item.kind === 'playlist'
-              ? pickPlaylist(item)
-              : pickTrack(item as SoundCloudTrack)
-          "
+          @click="handleItemClick(item)"
         >
           <img
             v-if="item.artworkUrl"

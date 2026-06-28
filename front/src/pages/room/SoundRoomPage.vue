@@ -35,6 +35,7 @@ const {
   muted,
   trackQueue,
   currentQueueIndex,
+  isSelectingTrack,
   selectTrack,
   selectPlaylist,
   loadFromUrl,
@@ -104,13 +105,14 @@ onBeforeRouteLeave(() => {
 
     <template v-else-if="room">
       <div
-        class="sound-room-page__content grid w-full min-h-0 flex-1 gap-4 p-4 md:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:min-h-[calc(100svh-10rem)]"
+        class="sound-room-page__content grid w-full min-h-0 flex-1 gap-4 p-4 pb-24 md:p-6 md:pb-24 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:min-h-[calc(100svh-8.5rem)]"
       >
         <div class="sound-room-page__main flex h-full min-h-[480px] min-w-0 flex-col gap-3">
           <SoundcloudTrackSearch
             class="sound-room-page__search"
             :room-id="room.id"
             :participants="participants"
+            :is-selecting-track="isSelectingTrack"
             @select-track="selectTrack"
             @select-playlist="selectPlaylist"
             @submit-url="loadFromUrl"
@@ -135,9 +137,9 @@ onBeforeRouteLeave(() => {
         />
       </div>
 
-      <footer class="sound-room-page__player shrink-0">
-        <SoundPlayerBar
-          :title="currentTrackTitle || 'No track selected'"
+      <SoundPlayerBar
+        class="sound-room-page__player"
+        :title="currentTrackTitle || 'No track selected'"
           :artist="currentTrackArtist || ''"
           :artwork-url="currentArtworkUrl || ''"
           :is-playing="isPlaying"
@@ -165,10 +167,9 @@ onBeforeRouteLeave(() => {
           @change-volume="changeVolume"
           @prev="playPrevInQueue"
           @next="playNextInQueue"
-          @select-queue-index="(index) => goToQueueIndex(index)"
-          @reorder-queue="reorderQueue"
-        />
-      </footer>
+        @select-queue-index="(index) => goToQueueIndex(index)"
+        @reorder-queue="reorderQueue"
+      />
     </template>
 
     <audio

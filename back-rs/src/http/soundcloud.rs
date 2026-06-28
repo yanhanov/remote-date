@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     routing::get,
     Json, Router,
 };
@@ -12,6 +12,7 @@ use crate::soundcloud::service;
 pub fn router() -> Router<AppContext> {
     Router::new()
         .route("/search", get(search_tracks))
+        .route("/tracks/{id}", get(get_track))
         .route("/playlist/{id}", get(playlist_not_implemented))
 }
 
@@ -72,6 +73,32 @@ async fn search_tracks(
             Json(serde_json::json!({
                 "error": err.to_string()
             })),
+        ),
+    }
+}
+
+async fn get_track(
+    State(_state): State<AppContext>,
+    Path(id): Path<i64>,
+) -> (axum::http::StatusCode, Json<serde_json::Value>) {
+    let client_id = match std::env::var("SOUNDCLOUD_CLIENT_ID") {
+        Ok(v) => v,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": "SOUNDCLOUD_CLIENT_ID is not configured on the server"
+                })),
+            );
+        }
+    };
+
+    let client = reqwest::Client::new();
+    match service::get_track(&client, &client_id, id).await {
+        Ok(item) => (axum::http::StatusCode::OK, Json(serde_json::json!(item))),
+        Err(err) => (
+            axum::http::StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({ "error": err.to_string() })),
         ),
     }
 }

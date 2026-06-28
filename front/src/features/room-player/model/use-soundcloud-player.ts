@@ -24,6 +24,7 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
   const muted = ref(false)
   const trackQueue = ref<SoundTrack[]>([])
   const currentQueueIndex = ref<number | null>(null)
+  const isSelectingTrack = ref(false)
   const isLocalAction = ref(false)
 
   let audioStateRetryCount = 0
@@ -72,21 +73,42 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
   }
 
   async function selectTrack(track: SoundCloudTrack, queue: SoundTrack[]) {
-    if (!track.streamUrl) {
-      toast.error('This track cannot be played with custom player (no stream URL).')
-      return
+    isSelectingTrack.value = true
+    try {
+      let playable = track
+
+      if (!playable.streamUrl) {
+        try {
+          playable = await soundCloudAPI.getTrack(track.id)
+        } catch (e: unknown) {
+          console.error(e)
+          toast.error(e instanceof Error ? e.message : 'Failed to resolve track stream')
+          return
+        }
+      }
+
+      currentTrackTitle.value = playable.title ?? null
+      currentTrackArtist.value = playable.username ?? null
+      currentArtworkUrl.value = playable.artworkUrl ?? null
+      trackQueue.value = (queue.length ? queue : [playable]).map((t) =>
+        t.id === playable.id ? { ...t, streamUrl: playable.streamUrl } : t,
+      )
+      currentQueueIndex.value = 0
+
+      if (!playable.streamUrl) {
+        currentTrackUrl.value = null
+        isPlaying.value = false
+        toast.error('This track cannot be played (no stream URL from SoundCloud).')
+        return
+      }
+
+      currentTrackUrl.value = playable.streamUrl
+      emitTrackChange()
+      toast.success('Track selected.')
+      await autoplay()
+    } finally {
+      isSelectingTrack.value = false
     }
-
-    currentTrackUrl.value = track.streamUrl
-    currentTrackTitle.value = track.title ?? null
-    currentTrackArtist.value = track.username ?? null
-    currentArtworkUrl.value = track.artworkUrl ?? null
-    trackQueue.value = queue.length ? queue : [track]
-    currentQueueIndex.value = 0
-
-    emitTrackChange()
-    toast.success('Track selected.')
-    await autoplay()
   }
 
   async function selectPlaylist(playlist: SoundCloudPlaylist) {
@@ -472,6 +494,7 @@ export function useSoundcloudPlayer(roomId: string, room: Ref<VideoRoom | null>)
     muted,
     trackQueue,
     currentQueueIndex,
+    isSelectingTrack,
     selectTrack,
     selectPlaylist,
     loadFromUrl,

@@ -102,6 +102,42 @@ pub async fn search_tracks(
     Ok(items)
 }
 
+pub async fn get_track(
+    client: &reqwest::Client,
+    client_id: &str,
+    track_id: i64,
+) -> Result<Item> {
+    let url = format!("{SOUNDCLOUD_API_URL}/tracks/{track_id}");
+    let resp = client
+        .get(&url)
+        .query(&[("client_id", client_id)])
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        let detail = if text.trim().is_empty() {
+            format!("HTTP {status}")
+        } else {
+            text
+        };
+        return Err(anyhow!("SoundCloud track fetch failed ({detail})"));
+    }
+
+    let track: Track = resp.json().await?;
+    let stream_url = match resolve_stream_url_from_media(client, &track.media, client_id).await {
+        Ok(url) => url,
+        Err(err) => {
+            tracing::warn!(
+                "Failed to resolve SoundCloud stream for track {track_id}: {err}"
+            );
+            None
+        }
+    };
+    Ok(track_to_item(track, stream_url))
+}
+
 async fn resolve_stream_url_from_media(
     client: &reqwest::Client,
     media: &Option<Media>,

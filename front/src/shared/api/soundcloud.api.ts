@@ -78,6 +78,18 @@ class SoundCloudAPI {
     return data.items.map((item) => this.mapTrack(item));
   }
 
+  async getTrack(trackId: number): Promise<SoundCloudTrack> {
+    const res = await authAPI.fetchWithAuth(`${this.baseUrl}/tracks/${trackId}`);
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || "Failed to fetch track");
+    }
+
+    const data = (await res.json()) as SoundCloudTrackRaw;
+    return this.mapTrack(data);
+  }
+
   async getPlaylistTracks(
     playlistId: string | number,
   ): Promise<SoundCloudTrack[]> {

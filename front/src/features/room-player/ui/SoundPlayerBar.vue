@@ -154,7 +154,7 @@ const handleVolumeChange = (values?: number[]) => {
 
 <template>
   <section
-    class="sound-player-bar w-full border-t border-border/60 bg-background/95 py-2 backdrop-blur-sm"
+    class="sound-player-bar fixed inset-x-0 bottom-0 z-50 w-full border-t border-border/60 bg-background/95 py-2 backdrop-blur-sm"
   >
     <div
       class="flex flex-col gap-2 px-3 sm:px-4 sm:flex-row sm:items-center sm:gap-4 py-0!"
@@ -256,6 +256,8 @@ const handleVolumeChange = (values?: number[]) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
+              side="top"
+              align="end"
               class="w-72 max-h-[min(70vh,400px)] overflow-y-auto"
             >
               <div
