@@ -3,9 +3,11 @@ import { ref, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { roomAPI } from "@/shared/api/room.api";
 import type { VideoRoom, VideoState } from "@/shared/api/room.types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
 import { Skeleton } from "@/shared/ui/skeleton";
+import SoundCloudIcon from "@/shared/ui/icons/SoundCloudIcon.vue";
+import { Search } from "lucide-vue-next";
 import { SoundPlayerBar } from "@/features/room-player";
 import { socketService } from "@/shared/api/socket.service";
 import { useChat, RoomChatPanel } from "@/features/room-chat";
@@ -621,37 +623,66 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="p-6 py-0 space-y-4 relative">
-    <Card v-if="loading">
-      <CardContent class="p-6">
-        <Skeleton class="w-full h-96" />
-      </CardContent>
-    </Card>
-
-    <div v-else-if="error" class="text-center space-y-4">
-      <p class="text-red-500">{{ error }}</p>
-      <Button @click="router.push('/')">Go Home</Button>
+  <div class="sound-room-page flex w-full flex-1 flex-col min-h-0">
+    <div
+      v-if="loading"
+      class="sound-room-page__loading p-4 md:p-6"
+    >
+      <div
+        class="overflow-hidden rounded-xl border border-border/60 bg-card/40 p-4"
+      >
+        <Skeleton class="h-96 w-full rounded-lg" />
+      </div>
     </div>
 
-    <div v-else-if="room" class="grid gap-4 md:grid-cols-[2fr,1fr] relative">
-      <!-- Left column: player & search -->
-      <div class="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle class="flex items-center justify-between">
-              <span>SoundCloud Room: {{ room.id.slice(0, 8) }}...</span>
-              <span class="text-sm font-normal">
-                Participants: {{ participants }}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent class="space-y-4">
-            <div class="space-y-2">
-              <div class="flex gap-1 mb-1">
+    <div
+      v-else-if="error"
+      class="sound-room-page__error flex flex-col items-center justify-center gap-4 px-6 py-16 text-center"
+    >
+      <p class="sound-room-page__error-text text-sm text-destructive">{{ error }}</p>
+      <Button
+        class="sound-room-page__error-action h-9"
+        variant="secondary"
+        @click="router.push('/soundcloud')"
+      >
+        Back to SoundCloud
+      </Button>
+    </div>
+
+    <template v-else-if="room">
+      <div
+        class="sound-room-page__content grid w-full min-h-0 flex-1 gap-4 p-4 md:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:min-h-[calc(100svh-10rem)]"
+      >
+        <div
+          class="sound-room-page__main flex h-full min-h-[480px] min-w-0 flex-col gap-3"
+        >
+          <section
+            class="sound-room-page__search shrink-0 rounded-xl border border-border/60 bg-card/40 p-4"
+          >
+            <header
+              class="sound-room-page__search-header mb-4 flex items-center justify-between gap-3"
+            >
+              <div class="sound-room-page__room-meta flex min-w-0 items-center gap-2.5">
+                <span
+                  class="sound-room-page__icon flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#ff5500]/15"
+                >
+                  <SoundCloudIcon class="sound-room-page__icon-svg size-5 text-[#ff5500]" />
+                </span>
+                <div class="min-w-0">
+                  <h1 class="sound-room-page__title truncate text-sm font-medium">
+                    SoundCloud Room
+                  </h1>
+                  <p class="sound-room-page__room-id truncate text-xs text-muted-foreground">
+                    {{ room.id.slice(0, 8) }} · {{ participants }} online
+                  </p>
+                </div>
+              </div>
+
+              <div class="sound-room-page__filters flex shrink-0 gap-1 rounded-lg bg-muted/40 p-1">
                 <Button
                   :variant="searchType === 'track' ? 'secondary' : 'ghost'"
                   size="sm"
-                  class="text-xs"
+                  class="sound-room-page__filter sound-room-page__filter--track h-7 px-2.5 text-xs"
                   @click="searchType = 'track'"
                 >
                   Track
@@ -659,16 +690,22 @@ onUnmounted(() => {
                 <Button
                   :variant="searchType === 'album' ? 'secondary' : 'ghost'"
                   size="sm"
-                  class="text-xs"
+                  class="sound-room-page__filter sound-room-page__filter--album h-7 px-2.5 text-xs"
                   @click="searchType = 'album'"
                 >
                   Album
                 </Button>
               </div>
-              <input
+            </header>
+
+            <div class="sound-room-page__search-field relative">
+              <Search
+                class="sound-room-page__search-icon pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
                 v-model="searchQuery"
+                class="sound-room-page__search-input h-10 border-border/60 bg-background/60 pl-9 shadow-none"
                 type="text"
-                class="w-full px-3 py-2 border rounded-md text-sm"
                 :placeholder="
                   searchType === 'track'
                     ? 'Search tracks or paste SoundCloud URL'
@@ -676,14 +713,22 @@ onUnmounted(() => {
                 "
                 @keyup.enter="loadTrack"
               />
-              <div
-                v-if="suggestions.length"
-                class="absolute z-10 mt-1 w-full border rounded-md bg-background shadow-lg max-h-64 overflow-y-auto"
+
+              <p
+                v-if="isSearching"
+                class="sound-room-page__search-status mt-2 text-xs text-muted-foreground"
               >
-                <div
+                Searching...
+              </p>
+
+              <ul
+                v-if="suggestions.length"
+                class="sound-room-page__suggestions absolute z-10 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-border/60 bg-card/95 p-1 shadow-lg backdrop-blur-sm"
+              >
+                <li
                   v-for="item in suggestions"
                   :key="item.id"
-                  class="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-accent"
+                  class="sound-room-page__suggestion flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted/50"
                   @click="
                     'kind' in item && item.kind === 'playlist'
                       ? selectPlaylist(item)
@@ -694,69 +739,112 @@ onUnmounted(() => {
                     v-if="item.artworkUrl"
                     :src="item.artworkUrl"
                     alt=""
-                    class="w-8 h-8 rounded object-cover"
+                    class="sound-room-page__suggestion-art size-10 shrink-0 rounded-md object-cover"
                   />
-                  <div class="flex-1 min-w-0">
-                    <p class="text-xs font-medium truncate">{{ item.title }}</p>
-                    <p class="text-[10px] text-muted-foreground truncate">
+                  <div class="sound-room-page__suggestion-meta min-w-0 flex-1">
+                    <p class="sound-room-page__suggestion-title truncate text-sm font-medium">
+                      {{ item.title }}
+                    </p>
+                    <p class="sound-room-page__suggestion-subtitle truncate text-xs text-muted-foreground">
                       {{ item.username }}
                       <span v-if="'trackCount' in item && item.trackCount">
                         · {{ item.trackCount }} tracks
                       </span>
                     </p>
                   </div>
-                </div>
-              </div>
+                </li>
+              </ul>
             </div>
-          </CardContent>
-        </Card>
+          </section>
+
+          <section
+            class="sound-room-page__now-playing flex min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-border/60 bg-gradient-to-b from-card/50 to-card/20 p-6 text-center"
+          >
+            <div
+              class="sound-room-page__artwork mb-4 flex size-44 items-center justify-center overflow-hidden rounded-2xl bg-muted/40 shadow-sm sm:size-52"
+            >
+              <img
+                v-if="currentArtworkUrl"
+                :src="currentArtworkUrl"
+                alt=""
+                class="sound-room-page__artwork-image size-full object-cover"
+              />
+              <SoundCloudIcon
+                v-else
+                class="sound-room-page__artwork-placeholder size-10 text-[#ff5500]/70"
+              />
+            </div>
+
+            <div class="sound-room-page__track-info max-w-sm space-y-1">
+              <h2 class="sound-room-page__track-title truncate text-lg font-semibold tracking-tight">
+                {{ currentTrackTitle || "No track selected" }}
+              </h2>
+              <p
+                v-if="currentTrackArtist"
+                class="sound-room-page__track-artist truncate text-sm text-muted-foreground"
+              >
+                {{ currentTrackArtist }}
+              </p>
+              <p
+                v-else
+                class="sound-room-page__track-hint text-sm text-muted-foreground"
+              >
+                Search for a track or album to start listening together.
+              </p>
+            </div>
+          </section>
+        </div>
+
+        <RoomChatPanel
+          class="sound-room-page__chat h-full min-h-[480px] min-w-0"
+          :messages="messages"
+          v-model:new-message="newMessage"
+          :current-user-name="currentUserName"
+          @send="send"
+          @play-track="loadTrackFromChat"
+          @send-file="sendFile"
+        />
       </div>
 
-      <!-- Right column: chat -->
-      <RoomChatPanel
-        :messages="messages"
-        :new-message="newMessage"
-        :current-user-name="currentUserName"
-        @update:new-message="(v) => (newMessage = v)"
-        @send="send"
-        @playTrack="loadTrackFromChat"
-        @sendFile="sendFile"
-      />
-    </div>
-    <SoundPlayerBar
-      :title="currentTrackTitle || 'No track selected'"
-      :artist="currentTrackArtist || ''"
-      :artwork-url="currentArtworkUrl || suggestions[0]?.artworkUrl || ''"
-      :is-playing="isPlaying"
-      :current-time="currentTime"
-      :duration="duration"
-      :can-play="!!currentTrackUrl"
-      :volume="volume"
-      :muted="muted"
-      :queue="
-        trackQueue.map((t) => ({
-          id: t.id,
-          title: t.title ?? null,
-          artist: t.username ?? null,
-        }))
-      "
-      :current-queue-index="currentQueueIndex ?? -1"
-      @togglePlay="togglePlay"
-      @seek="(value) => seek({ target: { value: String(value) } } as any)"
-      @toggleMute="toggleMute"
-      @changeVolume="changeVolume"
-      :can-go-prev="(currentQueueIndex ?? 0) > 0 && trackQueue.length > 1"
-      :can-go-next="
-        (currentQueueIndex ?? -1) >= 0 &&
-        (currentQueueIndex ?? 0) < trackQueue.length - 1
-      "
-      @prev="playPrevInQueue"
-      @next="playNextInQueue"
-      @selectQueueIndex="(index) => goToQueueIndex(index)"
-      @reorderQueue="reorderQueue"
-    />
+      <footer class="sound-room-page__player shrink-0">
+        <SoundPlayerBar
+          :title="currentTrackTitle || 'No track selected'"
+          :artist="currentTrackArtist || ''"
+          :artwork-url="currentArtworkUrl || ''"
+          :is-playing="isPlaying"
+          :current-time="currentTime"
+          :duration="duration"
+          :can-play="!!currentTrackUrl"
+          :volume="volume"
+          :muted="muted"
+          :queue="
+            trackQueue.map((t) => ({
+              id: t.id,
+              title: t.title ?? null,
+              artist: t.username ?? null,
+            }))
+          "
+          :current-queue-index="currentQueueIndex ?? -1"
+          :can-go-prev="(currentQueueIndex ?? 0) > 0 && trackQueue.length > 1"
+          :can-go-next="
+            (currentQueueIndex ?? -1) >= 0 &&
+            (currentQueueIndex ?? 0) < trackQueue.length - 1
+          "
+          @toggle-play="togglePlay"
+          @seek="(value) => seek({ target: { value: String(value) } } as any)"
+          @toggle-mute="toggleMute"
+          @change-volume="changeVolume"
+          @prev="playPrevInQueue"
+          @next="playNextInQueue"
+          @select-queue-index="(index) => goToQueueIndex(index)"
+          @reorder-queue="reorderQueue"
+        />
+      </footer>
+    </template>
+
     <audio
       ref="audioRef"
+      class="hidden"
       :src="currentTrackUrl || undefined"
       @loadedmetadata="onLoadedMetadata"
       @timeupdate="onTimeUpdate"

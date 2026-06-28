@@ -13,7 +13,7 @@ const platforms = [
   },
   {
     title: 'SoundCloud',
-    description: 'Listen to tracks together in real time.',
+    description: 'Create a room and pick a track inside.',
     icon: SoundCloudIcon,
     route: '/soundcloud',
   },

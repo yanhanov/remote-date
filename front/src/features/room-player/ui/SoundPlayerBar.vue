@@ -2,7 +2,6 @@
 import { computed, ref } from "vue";
 import { Button } from "@/shared/ui/button";
 import { Slider } from "@/shared/ui/slider";
-import { Card } from "@/shared/ui/card";
 import {
   Play,
   Pause,
@@ -154,8 +153,8 @@ const handleVolumeChange = (values?: number[]) => {
 </script>
 
 <template>
-  <Card
-    class="absolute inset-x-0 left-0 -bottom-17 w-full py-2 rounded-none border border-border/60 bg-background/95 backdrop-blur-sm z-20"
+  <section
+    class="sound-player-bar w-full border-t border-border/60 bg-background/95 py-2 backdrop-blur-sm"
   >
     <div
       class="flex flex-col gap-2 px-3 sm:px-4 sm:flex-row sm:items-center sm:gap-4 py-0!"
@@ -327,5 +326,5 @@ const handleVolumeChange = (values?: number[]) => {
         </div>
       </div>
     </div>
-  </Card>
+  </section>
 </template>
