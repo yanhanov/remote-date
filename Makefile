@@ -1,10 +1,14 @@
 .PHONY: help dev dev-api dev-front dev-mongo dev-mongo-down install check build
 
+ifneq (,$(wildcard .env))
+  include .env
+  export
+endif
+
 # На macOS порт 5000 часто занят AirPlay Receiver (Control Center).
 PORT ?= 5001
 JWT_SECRET ?= super-secret-dev
 JWT_EXPIRES_IN ?= 7d
-SOUNDCLOUD_CLIENT_ID ?= EnTrn2ZjaZXfOU7iRsFicZvTOi1Pl3rK
 MONGO_URL ?= mongodb://localhost:27017/remote
 
 help: ## Показать команды

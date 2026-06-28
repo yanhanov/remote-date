@@ -449,7 +449,7 @@ export function useYoutubePlayer(
     if (player && playerReady.value) {
       try {
         isLocalAction.value = true
-        player.loadVideoById?.(videoId)
+        player.loadVideoById?.({ videoId })
         player.pauseVideo?.()
         setTimeout(() => {
           isLocalAction.value = false

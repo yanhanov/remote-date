@@ -1,5 +1,8 @@
 export { default as SoundPlayerBar } from './ui/SoundPlayerBar.vue'
+export { default as SoundcloudNowPlaying } from './ui/SoundcloudNowPlaying.vue'
+export { default as SoundcloudTrackSearch } from './ui/SoundcloudTrackSearch.vue'
 export { default as YoutubePlayerCard } from './ui/YoutubePlayerCard.vue'
 export { default as YoutubeVideoSearch } from './ui/YoutubeVideoSearch.vue'
+export { useSoundcloudPlayer } from './model/use-soundcloud-player'
 export { useYoutubePlayer } from './model/use-youtube-player'
 export { YOUTUBE_PLAYER_ELEMENT_ID } from './model/youtube.types'

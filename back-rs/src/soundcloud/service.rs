@@ -73,11 +73,14 @@ pub async fn search_tracks(
         .await?;
 
     if !resp.status().is_success() {
+        let status = resp.status();
         let text = resp.text().await.unwrap_or_default();
-        return Err(anyhow!(
-            "Failed to fetch tracks from SoundCloud: {}",
+        let detail = if text.trim().is_empty() {
+            format!("HTTP {status}")
+        } else {
             text
-        ));
+        };
+        return Err(anyhow!("SoundCloud search failed ({detail})"));
     }
 
     let data: SearchResponse<Track> = resp.json().await?;
@@ -85,8 +88,14 @@ pub async fn search_tracks(
 
     let mut items = Vec::new();
     for track in collection {
-        let stream_url =
-            resolve_stream_url_from_media(client, &track.media, client_id).await?;
+        let stream_url = match resolve_stream_url_from_media(client, &track.media, client_id).await
+        {
+            Ok(url) => url,
+            Err(err) => {
+                tracing::warn!("Failed to resolve SoundCloud stream for track {}: {err}", track.id);
+                None
+            }
+        };
         items.push(track_to_item(track, stream_url));
     }
 
@@ -118,11 +127,14 @@ async fn resolve_stream_url_from_media(
 
     let resp = client.get(url).send().await?;
     if !resp.status().is_success() {
+        let status = resp.status();
         let text = resp.text().await.unwrap_or_default();
-        return Err(anyhow!(
-            "SoundCloud progressive resolve error: {}",
+        let detail = if text.trim().is_empty() {
+            format!("HTTP {status}")
+        } else {
             text
-        ));
+        };
+        return Err(anyhow!("SoundCloud stream resolve failed ({detail})"));
     }
 
     #[derive(Deserialize)]

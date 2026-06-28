@@ -70,7 +70,7 @@ async fn search_tracks(
         Err(err) => (
             axum::http::StatusCode::BAD_GATEWAY,
             Json(serde_json::json!({
-                "error": format!("Failed to fetch tracks from SoundCloud: {err}")
+                "error": err.to_string()
             })),
         ),
     }
