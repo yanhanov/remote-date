@@ -50,6 +50,26 @@ export function useAppBreadcrumbs() {
       return crumbs
     }
 
+    if (path === "/friends") {
+      crumbs.push({ label: "Friends" })
+      return crumbs
+    }
+
+    if (path === "/messages") {
+      crumbs.push({ label: "Messages" })
+      return crumbs
+    }
+
+    if (path === "/statistics") {
+      crumbs.push({ label: "Statistics" })
+      return crumbs
+    }
+
+    if (path === "/settings") {
+      crumbs.push({ label: "Settings" })
+      return crumbs
+    }
+
     crumbs.push({ label: "Page" })
     return crumbs
   })

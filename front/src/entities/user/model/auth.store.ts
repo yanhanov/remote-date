@@ -1,10 +1,7 @@
 import { ref, computed, type Ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { authAPI } from '@/shared/api/auth.api'
 import { tokenService } from '@/shared/api/token.service'
 import type { User } from './types'
-
-const router = useRouter()
 
 const user: Ref<User | null> = ref(null)
 const isLoading = ref(false)
@@ -26,7 +23,6 @@ export const authStore = {
 
     if (!tokenService.hasTokens()) {
       isInitialized.value = true
-      router.push('/auth')
       return false
     }
 

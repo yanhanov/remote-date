@@ -112,7 +112,7 @@ function submitSearch() {
         <span
           class="soundcloud-track-search__icon flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#ff5500]/15"
         >
-          <SoundCloudIcon class="soundcloud-track-search__icon-svg size-5 text-[#ff5500]" />
+          <SoundCloudIcon class="soundcloud-track-search__icon-svg size-5" />
         </span>
         <div class="min-w-0">
           <h1 class="soundcloud-track-search__title truncate text-sm font-medium">

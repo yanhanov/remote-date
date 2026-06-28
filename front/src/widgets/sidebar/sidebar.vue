@@ -44,12 +44,12 @@ watch(
 );
 
 const navButtonClass =
-  "app-sidebar__nav-button rounded-lg text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground data-[active=true]:bg-foreground/[0.07] data-[active=true]:text-foreground data-[active=true]:font-medium data-[active=true]:shadow-none group-data-[collapsible=icon]:justify-center";
+  "app-sidebar__nav-button rounded-lg text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:font-medium data-[active=true]:shadow-none group-data-[collapsible=icon]:justify-center";
 
 const profileButtonClass = computed(() =>
   isCollapsed.value
     ? `${navButtonClass} app-sidebar__profile-button app-sidebar__profile-button--collapsed`
-    : "app-sidebar__profile-button h-auto min-h-12 rounded-lg py-2.5 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground data-[active=true]:bg-foreground/[0.07] data-[active=true]:text-foreground data-[active=true]:font-medium data-[active=true]:shadow-none",
+    : "app-sidebar__profile-button h-auto min-h-12 rounded-lg py-2.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:font-medium data-[active=true]:shadow-none",
 );
 
 function isNavActive(url: string): boolean {
@@ -100,7 +100,7 @@ const secondaryItems = [
   <Sidebar
     collapsible="icon"
     variant="sidebar"
-    class="app-sidebar border-none bg-transparent shadow-none"
+    class="app-sidebar border-r border-sidebar-border bg-sidebar shadow-none"
   >
     <div
       class="app-sidebar__inner flex h-full min-w-0 flex-col overflow-x-hidden"
@@ -116,7 +116,7 @@ const secondaryItems = [
           :class="isCollapsed ? 'justify-center' : 'gap-2.5 px-1 py-1'"
         >
           <span
-            class="app-sidebar__logo-mark flex shrink-0 items-center justify-center rounded-lg bg-foreground font-semibold tracking-tight text-background"
+            class="app-sidebar__logo-mark flex shrink-0 items-center justify-center rounded-lg bg-sidebar-primary font-semibold tracking-tight text-sidebar-primary-foreground"
             :class="isCollapsed ? 'size-9 text-xs' : 'size-8 text-[11px]'"
           >
             R
@@ -262,7 +262,7 @@ const secondaryItems = [
                 >
                   <AvatarImage :src="user?.avatarUrl || ''" />
                   <AvatarFallback
-                    class="app-sidebar__profile-fallback bg-foreground/10 font-medium text-foreground"
+                    class="app-sidebar__profile-fallback bg-primary/10 font-medium text-primary"
                     :class="isCollapsed ? 'text-[10px]' : 'text-xs'"
                   >
                     {{ avatarInitials }}

@@ -9,6 +9,10 @@ import {
   SoundcloudPage,
   AuthPage,
   ProfilePage,
+  FriendsPage,
+  MessagesPage,
+  StatisticsPage,
+  SettingsPage,
 } from '@/pages'
 import { DefaultLayout, AuthLayout } from '@/app/layout'
 import { authStore } from '@/entities/user'
@@ -27,6 +31,10 @@ const router = createRouter({
         { path: 'room/:id', component: RoomPage },
         { path: 'sound-room/:id', component: SoundRoomPage },
         { path: 'profile', component: ProfilePage },
+        { path: 'friends', component: FriendsPage },
+        { path: 'messages', component: MessagesPage },
+        { path: 'statistics', component: StatisticsPage },
+        { path: 'settings', component: SettingsPage },
       ],
     },
     {

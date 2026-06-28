@@ -23,7 +23,7 @@ defineProps<{
       />
       <SoundCloudIcon
         v-else
-        class="soundcloud-now-playing__artwork-placeholder size-10 text-[#ff5500]/70"
+        class="soundcloud-now-playing__artwork-placeholder size-10 opacity-70"
       />
     </div>
 

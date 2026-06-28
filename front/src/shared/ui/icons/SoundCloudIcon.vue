@@ -6,7 +6,7 @@ defineProps<{
 
 <template>
   <svg
-    fill="currentColor"
+    fill="#ff5500"
     height="24px"
     width="24px"
     version="1.1"

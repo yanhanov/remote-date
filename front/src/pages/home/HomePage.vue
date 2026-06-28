@@ -26,7 +26,7 @@ const platforms = [
       <header class="home-page__header space-y-1.5 text-center">
         <div class="home-page__brand flex items-center justify-center gap-2.5">
           <span
-            class="home-page__logo-mark flex size-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-[11px] font-semibold tracking-tight text-background"
+            class="home-page__logo-mark flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-[11px] font-semibold tracking-tight text-primary-foreground"
           >
             R
           </span>
@@ -44,7 +44,7 @@ const platforms = [
           v-for="platform in platforms"
           :key="platform.route"
           :to="platform.route"
-          class="home-page__link group flex items-center gap-4 rounded-xl border border-border/60 bg-card/40 p-4 transition-colors hover:border-border hover:bg-muted/30"
+          class="home-page__link group flex items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/20 hover:bg-accent/50"
         >
           <span
             class="home-page__link-icon flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted/50"
@@ -65,7 +65,7 @@ const platforms = [
           </span>
 
           <PhArrowRight
-            class="home-page__link-arrow size-4 shrink-0 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
+            class="home-page__link-arrow size-4 shrink-0 text-primary opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
           />
         </RouterLink>
       </nav>
