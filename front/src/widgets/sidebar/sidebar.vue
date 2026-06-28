@@ -3,8 +3,6 @@ import { computed, watch } from "vue";
 import { useRoute, RouterLink } from "vue-router";
 import {
   PhHouse,
-  PhChartBar,
-  PhGear,
   PhUsers,
   PhChatCircle,
 } from "@phosphor-icons/vue";
@@ -91,8 +89,6 @@ const mainItems = [
 const secondaryItems = [
   { title: "Friends", url: "/friends", icon: PhUsers },
   { title: "Messages", url: "/messages", icon: PhChatCircle },
-  { title: "Statistics", url: "/statistics", icon: PhChartBar },
-  { title: "Settings", url: "/settings", icon: PhGear },
 ];
 </script>
 

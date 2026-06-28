@@ -216,12 +216,12 @@ impl AuthService {
             };
         }
         if let Some(birth) = dto.birth_date {
-            if !birth.is_empty() {
-                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&birth) {
-                    user.birth_date = Some(dt.with_timezone(&chrono::Utc));
-                }
-            } else {
+            if birth.is_empty() {
                 user.birth_date = None;
+            } else if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&birth) {
+                user.birth_date = Some(dt.with_timezone(&chrono::Utc));
+            } else if let Ok(date) = chrono::NaiveDate::parse_from_str(&birth, "%Y-%m-%d") {
+                user.birth_date = date.and_hms_opt(0, 0, 0).map(|dt| dt.and_utc());
             }
         }
 

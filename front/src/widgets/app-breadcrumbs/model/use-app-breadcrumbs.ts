@@ -60,16 +60,6 @@ export function useAppBreadcrumbs() {
       return crumbs
     }
 
-    if (path === "/statistics") {
-      crumbs.push({ label: "Statistics" })
-      return crumbs
-    }
-
-    if (path === "/settings") {
-      crumbs.push({ label: "Settings" })
-      return crumbs
-    }
-
     crumbs.push({ label: "Page" })
     return crumbs
   })
