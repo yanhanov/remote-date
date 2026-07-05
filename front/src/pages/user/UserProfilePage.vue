@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter, RouterLink } from 'vue-router'
-import { toast } from 'vue-sonner'
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter, RouterLink } from "vue-router";
+import { toast } from "vue-sonner";
 import {
   PhCalendarBlank,
   PhChatCircle,
@@ -12,72 +12,77 @@ import {
   PhUser,
   PhUserPlus,
   PhUsersThree,
-} from '@phosphor-icons/vue'
-import { UserAvatar } from '@/entities/user'
-import { socialAPI } from '@/shared/api/social.api'
-import type { PublicUserProfile, RelationshipStatus } from '@/shared/api/social.types'
-import { computeAge, formatBirthDate } from '@/shared/lib/birth-date'
-import { Button } from '@/shared/ui/button'
+} from "@phosphor-icons/vue";
+import { UserAvatar } from "@/entities/user";
+import { socialAPI } from "@/shared/api/social.api";
+import type {
+  PublicUserProfile,
+  RelationshipStatus,
+} from "@/shared/api/social.types";
+import { computeAge, formatBirthDate } from "@/shared/lib/birth-date";
+import { Button } from "@/shared/ui/button";
 
-const route = useRoute()
-const router = useRouter()
+const route = useRoute();
+const router = useRouter();
 
-const profile = ref<PublicUserProfile | null>(null)
-const isLoading = ref(true)
-const isActing = ref(false)
+const profile = ref<PublicUserProfile | null>(null);
+const isLoading = ref(true);
+const isActing = ref(false);
 
-const userId = computed(() => route.params.id as string)
+const userId = computed(() => route.params.id as string);
 
-const age = computed(() => computeAge(profile.value?.birthDate))
-const birthDateFormatted = computed(() => formatBirthDate(profile.value?.birthDate))
+const age = computed(() => computeAge(profile.value?.birthDate));
+const birthDateFormatted = computed(() =>
+  formatBirthDate(profile.value?.birthDate),
+);
 
 const memberSince = computed(() => {
-  if (!profile.value?.createdAt) return null
+  if (!profile.value?.createdAt) return null;
   return new Intl.DateTimeFormat(undefined, {
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(profile.value.createdAt))
-})
+    month: "long",
+    year: "numeric",
+  }).format(new Date(profile.value.createdAt));
+});
 
 const friendsSinceFormatted = computed(() => {
-  if (!profile.value?.friendsSince) return null
+  if (!profile.value?.friendsSince) return null;
   return new Intl.DateTimeFormat(undefined, {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(profile.value.friendsSince))
-})
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(profile.value.friendsSince));
+});
 
 const sexLabel = computed(() => {
-  const sex = profile.value?.sex
-  if (!sex) return null
-  return { male: 'Male', female: 'Female', other: 'Other' }[sex]
-})
+  const sex = profile.value?.sex;
+  if (!sex) return null;
+  return { male: "Male", female: "Female", other: "Other" }[sex];
+});
 
 const relationshipLabel = computed(() => {
   const map: Record<RelationshipStatus, string | null> = {
     self: null,
     none: null,
-    friend: 'Friends',
-    pending_outgoing: 'Request sent',
-    pending_incoming: 'Wants to be friends',
-  }
-  return profile.value ? map[profile.value.relationship] : null
-})
+    friend: "Friends",
+    pending_outgoing: "Request sent",
+    pending_incoming: "Wants to be friends",
+  };
+  return profile.value ? map[profile.value.relationship] : null;
+});
 
 const relationshipBadgeClass = computed(() => {
-  const rel = profile.value?.relationship
-  if (rel === 'friend') {
-    return 'bg-primary/15 text-primary border-primary/25'
+  const rel = profile.value?.relationship;
+  if (rel === "friend") {
+    return "bg-primary/15 text-primary border-primary/25";
   }
-  if (rel === 'pending_incoming') {
-    return 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/25'
+  if (rel === "pending_incoming") {
+    return "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/25";
   }
-  if (rel === 'pending_outgoing') {
-    return 'bg-muted text-muted-foreground border-border/60'
+  if (rel === "pending_outgoing") {
+    return "bg-muted text-muted-foreground border-border/60";
   }
-  return ''
-})
+  return "";
+});
 
 const hasAboutInfo = computed(
   () =>
@@ -85,108 +90,108 @@ const hasAboutInfo = computed(
     Boolean(sexLabel.value) ||
     Boolean(birthDateFormatted.value) ||
     Boolean(memberSince.value),
-)
+);
 
 const infoItems = computed(() => {
-  const items: { icon: typeof PhUser; label: string; value: string }[] = []
+  const items: { icon: typeof PhUser; label: string; value: string }[] = [];
 
   if (age.value != null) {
     items.push({
       icon: PhUser,
-      label: 'Age',
+      label: "Age",
       value: `${age.value} years old`,
-    })
+    });
   }
 
   if (sexLabel.value) {
     items.push({
       icon: PhGenderIntersex,
-      label: 'Sex',
+      label: "Sex",
       value: sexLabel.value,
-    })
+    });
   }
 
   if (birthDateFormatted.value) {
     items.push({
       icon: PhCalendarBlank,
-      label: 'Birthday',
+      label: "Birthday",
       value: birthDateFormatted.value,
-    })
+    });
   }
 
   if (memberSince.value) {
     items.push({
       icon: PhUsersThree,
-      label: 'Member since',
+      label: "Member since",
       value: memberSince.value,
-    })
+    });
   }
 
-  return items
-})
+  return items;
+});
 
 async function loadProfile() {
-  isLoading.value = true
+  isLoading.value = true;
   try {
-    profile.value = await socialAPI.getUserProfile(userId.value)
+    profile.value = await socialAPI.getUserProfile(userId.value);
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Failed to load profile'
-    toast.error(message)
-    profile.value = null
+    const message = e instanceof Error ? e.message : "Failed to load profile";
+    toast.error(message);
+    profile.value = null;
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
 }
 
 async function sendRequest() {
-  if (!profile.value) return
-  isActing.value = true
+  if (!profile.value) return;
+  isActing.value = true;
   try {
-    await socialAPI.sendFriendRequest(profile.value.userId)
-    toast.success('Friend request sent')
-    await loadProfile()
+    await socialAPI.sendFriendRequest(profile.value.userId);
+    toast.success("Friend request sent");
+    await loadProfile();
   } catch (e: unknown) {
-    toast.error(e instanceof Error ? e.message : 'Failed to send request')
+    toast.error(e instanceof Error ? e.message : "Failed to send request");
   } finally {
-    isActing.value = false
+    isActing.value = false;
   }
 }
 
 async function acceptRequest() {
-  if (!profile.value?.incomingRequestId) return
-  isActing.value = true
+  if (!profile.value?.incomingRequestId) return;
+  isActing.value = true;
   try {
-    await socialAPI.acceptFriendRequest(profile.value.incomingRequestId)
-    toast.success('Friend request accepted')
-    await loadProfile()
+    await socialAPI.acceptFriendRequest(profile.value.incomingRequestId);
+    toast.success("Friend request accepted");
+    await loadProfile();
   } catch (e: unknown) {
-    toast.error(e instanceof Error ? e.message : 'Failed to accept request')
+    toast.error(e instanceof Error ? e.message : "Failed to accept request");
   } finally {
-    isActing.value = false
+    isActing.value = false;
   }
 }
 
 async function rejectRequest() {
-  if (!profile.value?.incomingRequestId) return
-  isActing.value = true
+  if (!profile.value?.incomingRequestId) return;
+  isActing.value = true;
   try {
-    await socialAPI.rejectFriendRequest(profile.value.incomingRequestId)
-    toast.success('Request declined')
-    await loadProfile()
+    await socialAPI.rejectFriendRequest(profile.value.incomingRequestId);
+    toast.success("Request declined");
+    await loadProfile();
   } catch (e: unknown) {
-    toast.error(e instanceof Error ? e.message : 'Failed to decline request')
+    toast.error(e instanceof Error ? e.message : "Failed to decline request");
   } finally {
-    isActing.value = false
+    isActing.value = false;
   }
 }
 
 function openChat() {
-  if (!profile.value) return
-  router.push(`/messages/${profile.value.userId}`)
+  if (!profile.value) return;
+  router.push(`/messages/${profile.value.userId}`);
 }
 
-watch(userId, loadProfile)
-onMounted(loadProfile)
+watch(userId, loadProfile);
+onMounted(loadProfile);
 </script>
 
 <template>
@@ -194,8 +199,13 @@ onMounted(loadProfile)
     <div
       class="user-profile-page__center flex flex-1 flex-col items-center justify-start p-6 md:p-10"
     >
-      <div class="user-profile-page__container w-full max-w-md space-y-8 lg:max-w-4xl">
-        <div v-if="isLoading" class="user-profile-page__loading flex justify-center py-24">
+      <div
+        class="user-profile-page__container w-full max-w-md space-y-8 lg:max-w-4xl"
+      >
+        <div
+          v-if="isLoading"
+          class="user-profile-page__loading flex justify-center py-24"
+        >
           <PhSpinner class="size-6 animate-spin text-muted-foreground" />
         </div>
 
@@ -213,7 +223,9 @@ onMounted(loadProfile)
                 <PhUser class="size-7 text-primary" weight="duotone" />
               </span>
               <div class="min-w-0">
-                <h1 class="user-profile-page__title page-title text-3xl md:text-[2rem]">
+                <h1
+                  class="user-profile-page__title page-title text-3xl md:text-[2rem]"
+                >
                   User profile
                 </h1>
                 <p class="user-profile-page__subtitle page-subtitle mt-1">
@@ -227,10 +239,14 @@ onMounted(loadProfile)
             class="user-profile-page__not-found rounded-xl border border-border/70 bg-card/50 px-6 py-12 text-center backdrop-blur-sm"
           >
             <PhUser class="mx-auto size-10 text-muted-foreground/60" />
-            <h2 class="user-profile-page__not-found-title mt-4 text-base font-semibold">
+            <h2
+              class="user-profile-page__not-found-title mt-4 text-base font-semibold"
+            >
               User not found
             </h2>
-            <p class="user-profile-page__not-found-text mt-1 text-sm text-muted-foreground">
+            <p
+              class="user-profile-page__not-found-text mt-1 text-sm text-muted-foreground"
+            >
               This profile doesn't exist or was removed.
             </p>
             <Button
@@ -257,11 +273,17 @@ onMounted(loadProfile)
                 <PhUser class="size-7 text-primary" weight="duotone" />
               </span>
               <div class="min-w-0">
-                <h1 class="user-profile-page__title page-title truncate text-3xl md:text-[2rem]">
+                <h1
+                  class="user-profile-page__title page-title truncate text-3xl md:text-[2rem]"
+                >
                   {{ profile.displayName }}
                 </h1>
-                <p class="user-profile-page__subtitle page-subtitle mt-1 truncate">
-                  <template v-if="profile.username">@{{ profile.username }}</template>
+                <p
+                  class="user-profile-page__subtitle page-subtitle mt-1 truncate"
+                >
+                  <template v-if="profile.username"
+                    >@{{ profile.username }}</template
+                  >
                   <template v-else>Public profile</template>
                 </p>
               </div>
@@ -274,18 +296,24 @@ onMounted(loadProfile)
             <section
               class="user-profile-page__identity-card rounded-xl border border-border/70 bg-card/50 p-5 backdrop-blur-sm lg:sticky lg:top-6"
             >
-              <div class="user-profile-page__hero flex flex-col items-center lg:items-start">
+              <div
+                class="user-profile-page__hero flex flex-col items-center lg:items-start"
+              >
                 <UserAvatar
                   :user="profile"
                   size="xl"
                   class="user-profile-page__avatar ring-2 ring-background"
                 />
 
-                <div class="user-profile-page__identity mt-4 min-w-0 max-w-full text-center lg:text-left">
+                <div
+                  class="user-profile-page__identity mt-4 min-w-0 max-w-full text-center lg:text-left"
+                >
                   <div
                     class="user-profile-page__name-row flex flex-wrap items-center justify-center gap-2 lg:justify-start"
                   >
-                    <p class="user-profile-page__name truncate text-base font-semibold tracking-tight">
+                    <p
+                      class="user-profile-page__name truncate text-base font-semibold tracking-tight"
+                    >
                       {{ profile.displayName }}
                     </p>
                     <span
@@ -320,7 +348,9 @@ onMounted(loadProfile)
                   Add friend
                 </Button>
 
-                <template v-else-if="profile.relationship === 'pending_incoming'">
+                <template
+                  v-else-if="profile.relationship === 'pending_incoming'"
+                >
                   <Button
                     class="user-profile-page__accept h-11 w-full rounded-xl"
                     :disabled="isActing"
@@ -376,13 +406,17 @@ onMounted(loadProfile)
               <section
                 class="user-profile-page__about overflow-hidden rounded-xl border border-border/70 bg-card/50 backdrop-blur-sm"
               >
-                <div class="user-profile-page__about-header border-b border-border/60 px-5 py-4">
+                <div
+                  class="user-profile-page__about-header border-b border-border/60 px-5 py-4"
+                >
                   <p
                     class="user-profile-page__about-label text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
                   >
                     About
                   </p>
-                  <p class="user-profile-page__about-description mt-1 text-xs text-muted-foreground">
+                  <p
+                    class="user-profile-page__about-description mt-1 text-xs text-muted-foreground"
+                  >
                     Public profile details.
                   </p>
                 </div>
@@ -400,13 +434,21 @@ onMounted(loadProfile)
                       <span
                         class="user-profile-page__info-icon flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/15"
                       >
-                        <component :is="item.icon" class="size-4 text-primary" weight="duotone" />
+                        <component
+                          :is="item.icon"
+                          class="size-4 text-primary"
+                          weight="duotone"
+                        />
                       </span>
                       <div class="user-profile-page__info-text min-w-0">
-                        <p class="user-profile-page__info-label text-xs text-muted-foreground">
+                        <p
+                          class="user-profile-page__info-label text-xs text-muted-foreground"
+                        >
                           {{ item.label }}
                         </p>
-                        <p class="user-profile-page__info-value mt-0.5 text-sm font-medium">
+                        <p
+                          class="user-profile-page__info-value mt-0.5 text-sm font-medium"
+                        >
                           {{ item.value }}
                         </p>
                       </div>
@@ -423,11 +465,15 @@ onMounted(loadProfile)
               </section>
 
               <section
-                v-if="profile.relationship === 'friend' && friendsSinceFormatted"
+                v-if="
+                  profile.relationship === 'friend' && friendsSinceFormatted
+                "
                 class="user-profile-page__friends-since rounded-xl border border-primary/25 bg-primary/8 px-5 py-4 text-center text-sm text-muted-foreground backdrop-blur-sm"
               >
                 Friends since
-                <span class="font-medium text-foreground">{{ friendsSinceFormatted }}</span>
+                <span class="font-medium text-foreground">{{
+                  friendsSinceFormatted
+                }}</span>
               </section>
             </div>
           </article>
