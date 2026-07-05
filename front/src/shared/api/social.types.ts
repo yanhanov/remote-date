@@ -42,12 +42,17 @@ export interface ConversationItem {
   lastMessageAt?: string
 }
 
+export type DirectMessageStatus = 'sending' | 'sent' | 'delivered' | 'read'
+
 export interface DirectMessageItem {
   id: string
   senderId: string
   text: string
   createdAt: string
   isOwn: boolean
+  status?: DirectMessageStatus
+  deliveredAt?: string
+  readAt?: string
 }
 
 export interface DmMessagePayload {
@@ -57,6 +62,14 @@ export interface DmMessagePayload {
   recipientId: string
   text: string
   createdAt: string
+  deliveredAt?: string
+  readAt?: string
+  status?: DirectMessageStatus
+}
+
+export interface DmStatusPayload {
+  messageIds: string[]
+  status: 'delivered' | 'read'
 }
 
 export interface MessageThread {

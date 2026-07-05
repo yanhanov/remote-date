@@ -327,6 +327,8 @@ impl MongoSocialRepository {
             sender_id,
             text: text.clone(),
             created_at: Utc::now(),
+            delivered_at: None,
+            read_at: None,
         };
 
         self.messages.insert_one(&message).await?;
@@ -334,5 +336,74 @@ impl MongoSocialRepository {
             .await?;
 
         Ok(message)
+    }
+
+    pub async fn mark_delivered(&self, message_id: &str) -> Result<Option<DirectMessage>> {
+        let now = Utc::now().to_rfc3339();
+        let filter = doc! {
+            "_id": message_id,
+            "$or": [
+                { "deliveredAt": mongodb::bson::Bson::Null },
+                { "deliveredAt": { "$exists": false } },
+            ],
+        };
+        let update = doc! { "$set": { "deliveredAt": now } };
+
+        self.messages
+            .find_one_and_update(filter, update)
+            .await
+            .context("failed to mark message delivered")
+    }
+
+    pub async fn mark_conversation_read(
+        &self,
+        conversation_id: &str,
+        reader_id: &str,
+    ) -> Result<Vec<String>> {
+        let unread_filter = doc! {
+            "conversationId": conversation_id,
+            "senderId": { "$ne": reader_id },
+            "$or": [
+                { "readAt": mongodb::bson::Bson::Null },
+                { "readAt": { "$exists": false } },
+            ],
+        };
+
+        let mut cursor = self.messages.find(unread_filter.clone()).await?;
+        let mut ids = Vec::new();
+        while cursor.advance().await? {
+            let message = cursor.deserialize_current()?;
+            ids.push(message.id);
+        }
+
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let now = Utc::now().to_rfc3339();
+        let update_filter = doc! { "_id": { "$in": &ids } };
+        self.messages
+            .update_many(
+                update_filter.clone(),
+                doc! { "$set": { "readAt": &now } },
+            )
+            .await
+            .context("failed to mark messages read")?;
+
+        self.messages
+            .update_many(
+                doc! {
+                    "_id": { "$in": &ids },
+                    "$or": [
+                        { "deliveredAt": mongodb::bson::Bson::Null },
+                        { "deliveredAt": { "$exists": false } },
+                    ],
+                },
+                doc! { "$set": { "deliveredAt": &now } },
+            )
+            .await
+            .context("failed to backfill delivered timestamps")?;
+
+        Ok(ids)
     }
 }

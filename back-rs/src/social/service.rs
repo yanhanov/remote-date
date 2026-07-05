@@ -134,6 +134,48 @@ impl SocialService {
             .await
     }
 
+    pub fn message_status(message: &DirectMessage) -> &'static str {
+        if message.read_at.is_some() {
+            "read"
+        } else if message.delivered_at.is_some() {
+            "delivered"
+        } else {
+            "sent"
+        }
+    }
+
+    pub fn message_to_json(message: &DirectMessage, viewer_id: &str) -> serde_json::Value {
+        let is_own = message.sender_id == viewer_id;
+        let mut value = serde_json::json!({
+            "id": message.id,
+            "senderId": message.sender_id,
+            "text": message.text,
+            "createdAt": message.created_at,
+            "isOwn": is_own,
+        });
+
+        if is_own {
+            value["status"] = serde_json::json!(Self::message_status(message));
+        }
+        if let Some(delivered_at) = message.delivered_at {
+            value["deliveredAt"] = serde_json::json!(delivered_at);
+        }
+        if let Some(read_at) = message.read_at {
+            value["readAt"] = serde_json::json!(read_at);
+        }
+
+        value
+    }
+
+    pub async fn mark_conversation_read(
+        repo: &MongoSocialRepository,
+        reader_id: &str,
+        other_user_id: &str,
+    ) -> Result<Vec<String>> {
+        let conversation = repo.upsert_conversation(reader_id, other_user_id).await?;
+        repo.mark_conversation_read(&conversation.id, reader_id).await
+    }
+
     pub fn other_user_id(friendship: &crate::social::models::Friendship, self_id: &str) -> String {
         if friendship.user_id_1 == self_id {
             friendship.user_id_2.clone()

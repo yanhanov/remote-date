@@ -385,15 +385,7 @@ async fn get_thread(
     {
         Ok(messages) => messages
             .into_iter()
-            .map(|message| {
-                serde_json::json!({
-                    "id": message.id,
-                    "senderId": message.sender_id,
-                    "text": message.text,
-                    "createdAt": message.created_at,
-                    "isOwn": message.sender_id == user.user_id,
-                })
-            })
+            .map(|message| SocialService::message_to_json(&message, &user.user_id))
             .collect::<Vec<_>>(),
         Err(err) => {
             return (
@@ -402,6 +394,31 @@ async fn get_thread(
             )
         }
     };
+
+    let read_message_ids = match state
+        .social_repo
+        .mark_conversation_read(&conversation.id, &user.user_id)
+        .await
+    {
+        Ok(ids) => ids,
+        Err(err) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": err.to_string() })),
+            )
+        }
+    };
+
+    if !read_message_ids.is_empty() {
+        crate::ws::notify_dm_status(
+            &user_id,
+            serde_json::json!({
+                "messageIds": read_message_ids,
+                "status": "read",
+            }),
+        )
+        .await;
+    }
 
     let other = state.social_repo.get_user_by_id(&user_id).await.ok().flatten();
 
@@ -434,13 +451,7 @@ async fn send_message(
     {
         Ok(message) => (
             axum::http::StatusCode::OK,
-            Json(serde_json::json!({
-                "id": message.id,
-                "senderId": message.sender_id,
-                "text": message.text,
-                "createdAt": message.created_at,
-                "isOwn": true,
-            })),
+            Json(SocialService::message_to_json(&message, &user.user_id)),
         ),
         Err(err) => (
             axum::http::StatusCode::BAD_REQUEST,

@@ -1,71 +1,94 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { toast } from 'vue-sonner'
-import { PhPaperPlaneRight, PhSpinner } from '@phosphor-icons/vue'
-import { UserAvatar } from '@/entities/user'
-import { DirectMessageContent, useDirectMessages } from '@/features/direct-message'
-import { socialAPI } from '@/shared/api/social.api'
-import type { ConversationItem, DirectMessageItem } from '@/shared/api/social.types'
-import { parseRoomInvite } from '@/shared/lib/room-invite-message'
-import { Button } from '@/shared/ui/button'
-import { Input } from '@/shared/ui/input'
-import { cn } from '@/shared/lib/utils'
+import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { RouterLink, useRoute, useRouter } from "vue-router";
+import { useMediaQuery } from "@vueuse/core";
+import { toast } from "vue-sonner";
+import { PhCaretLeft, PhChatsCircle, PhSpinner } from "@phosphor-icons/vue";
+import SendPlaneIcon from "@/shared/ui/icons/SendPlaneIcon.vue";
+import { UserAvatar } from "@/entities/user";
+import {
+  DirectMessageContent,
+  MessageStatusIcon,
+  useDirectMessages,
+} from "@/features/direct-message";
+import { socialAPI } from "@/shared/api/social.api";
+import type {
+  ConversationItem,
+  DirectMessageItem,
+} from "@/shared/api/social.types";
+import { parseRoomInvite } from "@/shared/lib/room-invite-message";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { cn } from "@/shared/lib/utils";
 
-const route = useRoute()
-const router = useRouter()
+const route = useRoute();
+const router = useRouter();
+const isMobile = useMediaQuery("(max-width: 768px)");
 
-const conversations = ref<ConversationItem[]>([])
-const messages = ref<DirectMessageItem[]>([])
-const activeUserId = ref<string | null>(null)
-const activeDisplayName = ref('')
-const activeAvatarUrl = ref<string | undefined>()
-const newMessage = ref('')
-const isLoadingList = ref(true)
-const isLoadingThread = ref(false)
-const isSending = ref(false)
-const messagesContainer = ref<HTMLElement | null>(null)
+const conversations = ref<ConversationItem[]>([]);
+const messages = ref<DirectMessageItem[]>([]);
+const activeUserId = ref<string | null>(null);
+const activeDisplayName = ref("");
+const activeAvatarUrl = ref<string | undefined>();
+const newMessage = ref("");
+const isLoadingList = ref(true);
+const isLoadingThread = ref(false);
+const isSending = ref(false);
+const messagesContainer = ref<HTMLElement | null>(null);
 
-const selectedUserId = computed(() => route.params.userId as string | undefined)
+const selectedUserId = computed(
+  () => route.params.userId as string | undefined,
+);
+
+const showSidebar = computed(() => !isMobile.value || !activeUserId.value);
+const showThread = computed(() => !isMobile.value || !!activeUserId.value);
 
 async function loadConversations() {
-  isLoadingList.value = true
+  isLoadingList.value = true;
   try {
-    conversations.value = await socialAPI.getConversations()
+    conversations.value = await socialAPI.getConversations();
   } catch (e: unknown) {
-    toast.error(e instanceof Error ? e.message : 'Failed to load conversations')
+    toast.error(
+      e instanceof Error ? e.message : "Failed to load conversations",
+    );
   } finally {
-    isLoadingList.value = false
+    isLoadingList.value = false;
   }
 }
 
+async function focusComposer() {
+  await nextTick();
+  document.getElementById("messages-composer-input")?.focus();
+}
+
 async function loadThread(userId: string) {
-  isLoadingThread.value = true
-  activeUserId.value = userId
+  isLoadingThread.value = true;
+  activeUserId.value = userId;
 
   try {
-    const thread = await socialAPI.getThread(userId)
-    messages.value = thread.messages
-    activeDisplayName.value = thread.displayName || 'Friend'
-    activeAvatarUrl.value = thread.avatarUrl
+    const thread = await socialAPI.getThread(userId);
+    messages.value = thread.messages;
+    activeDisplayName.value = thread.displayName || "Friend";
+    activeAvatarUrl.value = thread.avatarUrl;
   } catch (e: unknown) {
-    messages.value = []
-    toast.error(e instanceof Error ? e.message : 'Failed to load chat')
+    messages.value = [];
+    toast.error(e instanceof Error ? e.message : "Failed to load chat");
   } finally {
-    isLoadingThread.value = false
-    await nextTick()
-    scrollToBottom(false)
+    isLoadingThread.value = false;
+    await nextTick();
+    scrollToBottom(false);
+    await focusComposer();
   }
 }
 
 async function scrollToBottom(smooth = true) {
-  await nextTick()
-  const el = messagesContainer.value
-  if (!el) return
+  await nextTick();
+  const el = messagesContainer.value;
+  if (!el) return;
   el.scrollTo({
     top: el.scrollHeight,
-    behavior: smooth ? 'smooth' : 'instant',
-  })
+    behavior: smooth ? "smooth" : "instant",
+  });
 }
 
 const { sendMessage: sendDirectMessage } = useDirectMessages({
@@ -74,137 +97,174 @@ const { sendMessage: sendDirectMessage } = useDirectMessages({
   activeUserId,
   onThreadMessage: scrollToBottom,
   reloadConversations: loadConversations,
-})
+});
 
 async function sendMessage() {
-  const text = newMessage.value.trim()
-  if (!text || !activeUserId.value || isSending.value) return
+  const text = newMessage.value.trim();
+  if (!text || !activeUserId.value || isSending.value) return;
 
-  if (!sendDirectMessage(activeUserId.value, text)) return
+  if (!sendDirectMessage(activeUserId.value, text)) return;
 
-  newMessage.value = ''
+  newMessage.value = "";
+  await focusComposer();
 }
 
 function openConversation(userId: string) {
-  router.push(`/messages/${userId}`)
+  router.push(`/messages/${userId}`);
+}
+
+function closeConversation() {
+  router.push("/messages");
 }
 
 function formatTime(value?: string) {
-  if (!value) return ''
+  if (!value) return "";
   return new Intl.DateTimeFormat(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value))
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function isInviteMessage(text: string) {
-  return parseRoomInvite(text) !== null
+  return parseRoomInvite(text) !== null;
 }
 
 watch(
   selectedUserId,
-  async (userId) => {
+  async (userId, previousUserId) => {
+    if (userId !== previousUserId) {
+      newMessage.value = "";
+    }
+
     if (userId) {
-      await loadThread(userId)
+      await loadThread(userId);
     } else {
-      activeUserId.value = null
-      messages.value = []
+      activeUserId.value = null;
+      messages.value = [];
     }
   },
   { immediate: true },
-)
+);
 
-onMounted(loadConversations)
+onMounted(loadConversations);
 </script>
 
 <template>
   <div
-    class="messages-page flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8"
+    class="messages-page flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden"
   >
-    <header class="messages-page__header mb-4 shrink-0">
-      <h1 class="messages-page__title page-title">Messages</h1>
-      <p class="messages-page__subtitle page-subtitle mt-1">
-        Chat with your friends outside rooms.
-      </p>
-    </header>
-
     <div
-      class="messages-page__layout surface grid min-h-0 w-full flex-1 overflow-hidden grid-rows-[minmax(0,11rem)_minmax(0,1fr)] md:grid-cols-[minmax(0,16rem)_1fr] md:grid-rows-1"
+      class="messages-page__layout grid min-h-0 flex-1 overflow-hidden md:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]"
     >
       <aside
-        class="messages-page__sidebar flex min-h-0 flex-col overflow-hidden border-b border-border md:border-b-0 md:border-r"
+        v-show="showSidebar"
+        class="messages-page__sidebar flex min-h-0 flex-col overflow-hidden border-border/70 md:border-r"
       >
         <div
-          class="messages-page__sidebar-header shrink-0 border-b border-border px-4 py-3"
+          class="messages-page__conversation-list min-h-0 flex-1 overflow-y-auto scroll-smooth"
         >
-          <p class="text-sm font-medium">Conversations</p>
-        </div>
-
-        <div
-          class="messages-page__conversation-list min-h-0 flex-1 overflow-y-auto scroll-smooth p-2"
-        >
-          <div v-if="isLoadingList" class="flex justify-center py-8">
+          <div v-if="isLoadingList" class="flex justify-center py-10">
             <PhSpinner class="size-5 animate-spin text-muted-foreground" />
           </div>
 
           <p
             v-else-if="!conversations.length"
-            class="px-2 py-4 text-center text-sm text-muted-foreground"
+            class="px-4 py-10 text-center text-sm text-muted-foreground"
           >
             No conversations yet.
-            <RouterLink to="/friends" class="text-primary hover:underline">Add friends</RouterLink>
-            first.
+            <RouterLink to="/friends" class="text-primary hover:underline">
+              Add friends
+            </RouterLink>
           </p>
 
           <button
             v-for="conversation in conversations"
             :key="conversation.conversationId"
             type="button"
-            class="messages-page__conversation-item flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted"
+            class="messages-page__conversation-item flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/40"
             :class="{
-              'bg-muted': activeUserId === conversation.userId,
+              'bg-primary/10 hover:bg-primary/10':
+                activeUserId === conversation.userId,
             }"
             @click="openConversation(conversation.userId)"
           >
-            <UserAvatar :user="conversation" size="sm" />
+            <UserAvatar :user="conversation" size="md" />
             <div class="min-w-0 flex-1">
-              <div class="flex items-center justify-between gap-2">
-                <p class="truncate text-sm font-medium">{{ conversation.displayName }}</p>
-                <span class="shrink-0 text-[10px] text-muted-foreground">
+              <div class="flex items-baseline justify-between gap-2">
+                <p class="truncate text-[15px] font-medium leading-tight">
+                  {{ conversation.displayName }}
+                </p>
+                <span
+                  v-if="conversation.lastMessageAt"
+                  class="shrink-0 text-xs text-muted-foreground"
+                >
                   {{ formatTime(conversation.lastMessageAt) }}
                 </span>
               </div>
-              <p class="truncate text-xs text-muted-foreground">
-                {{ conversation.lastMessageText || 'No messages yet' }}
+              <p class="mt-0.5 truncate text-sm text-muted-foreground">
+                {{ conversation.lastMessageText || "No messages yet" }}
               </p>
             </div>
           </button>
         </div>
       </aside>
 
-      <section class="messages-page__thread flex min-h-0 min-w-0 flex-col overflow-hidden">
+      <section
+        v-show="showThread"
+        class="messages-page__thread relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-background"
+      >
+        <div
+          class="messages-page__thread-bg pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,var(--border)_1px,transparent_0)] [background-size:22px_22px] opacity-40"
+          aria-hidden="true"
+        />
+        <div
+          class="messages-page__thread-glow pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-primary/[0.06] to-transparent"
+          aria-hidden="true"
+        />
+
         <template v-if="activeUserId">
-          <header
-            class="messages-page__thread-header flex shrink-0 items-center gap-3 border-b border-border px-4 py-3"
+          <RouterLink
+            :to="`/users/${activeUserId}`"
+            class="messages-page__thread-header group absolute top-[10px] right-[10px] left-[10px] z-20 flex h-14 items-center gap-2 rounded-[30px] border border-border/40 bg-background/70 px-2 shadow-sm backdrop-blur-2xl transition-colors hover:bg-background/80 md:px-3"
           >
-            <RouterLink :to="`/users/${activeUserId}`" class="flex items-center gap-3">
-              <UserAvatar
-                :user="{
-                  userId: activeUserId,
-                  displayName: activeDisplayName,
-                  avatarUrl: activeAvatarUrl,
-                }"
-                size="sm"
-              />
-              <p class="text-sm font-medium hover:underline">{{ activeDisplayName }}</p>
-            </RouterLink>
-          </header>
+            <span
+              v-if="isMobile"
+              role="button"
+              tabindex="0"
+              class="messages-page__back flex size-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-accent/60 hover:text-foreground active:scale-95"
+              aria-label="Back to chats"
+              @click.prevent.stop="closeConversation"
+              @keydown.enter.prevent.stop="closeConversation"
+            >
+              <PhCaretLeft class="size-5" weight="bold" />
+            </span>
+
+            <UserAvatar
+              :user="{
+                userId: activeUserId,
+                displayName: activeDisplayName,
+                avatarUrl: activeAvatarUrl,
+              }"
+              size="sm"
+              class="ring-2 ring-background"
+            />
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-[15px] font-semibold tracking-tight">
+                {{ activeDisplayName }}
+              </p>
+              <p
+                class="truncate text-xs text-muted-foreground transition-colors group-hover:text-primary"
+              >
+                View profile
+              </p>
+            </div>
+          </RouterLink>
 
           <div
             ref="messagesContainer"
-            class="messages-page__messages min-h-0 flex-1 space-y-3 overflow-y-auto scroll-smooth p-4"
+            class="messages-page__messages absolute inset-0 z-0 space-y-2 overflow-y-auto scroll-smooth px-[10px] pt-[calc(10px+3.5rem+8px)] pb-[calc(10px+3.5rem+8px)]"
           >
-            <div v-if="isLoadingThread" class="flex justify-center py-10">
+            <div v-if="isLoadingThread" class="flex justify-center py-16">
               <PhSpinner class="size-5 animate-spin text-muted-foreground" />
             </div>
 
@@ -220,57 +280,99 @@ onMounted(loadConversations)
                   :class="
                     cn(
                       isInviteMessage(message.text)
-                        ? 'w-full max-w-[min(100%,20rem)]'
-                        : 'max-w-[75%] px-3.5 py-2 text-sm',
+                        ? 'w-full max-w-[min(100%,22rem)]'
+                        : 'max-w-[min(100%,20rem)] text-[15px] leading-relaxed',
                       !isInviteMessage(message.text) &&
                         (message.isOwn
-                          ? 'rounded-lg rounded-br-sm bg-primary text-primary-foreground'
-                          : 'rounded-lg rounded-bl-sm bg-muted text-foreground'),
+                          ? 'rounded-[1.25rem] rounded-br-md bg-gradient-to-br from-primary to-primary/88 px-3.5 py-2 text-primary-foreground shadow-[0_8px_24px_-10px] shadow-primary/45'
+                          : 'rounded-[1.25rem] rounded-bl-md border border-border/60 bg-card/90 px-3.5 py-2 text-foreground shadow-[0_4px_20px_-12px] shadow-black/10 backdrop-blur-sm'),
                     )
                   "
                 >
+                  <div
+                    v-if="!isInviteMessage(message.text)"
+                    class="flex flex-wrap items-end gap-x-2 gap-y-0.5"
+                  >
+                    <div class="min-w-0 flex-1 break-words">
+                      <DirectMessageContent
+                        :text="message.text"
+                        :is-own="message.isOwn"
+                        :created-at="message.createdAt"
+                      />
+                    </div>
+                    <div
+                      class="ml-auto flex shrink-0 items-center gap-1 pb-px"
+                      :class="message.isOwn ? '' : 'opacity-60'"
+                    >
+                      <span
+                        class="text-[10px] font-medium tabular-nums"
+                        :class="
+                          message.isOwn
+                            ? 'text-primary-foreground'
+                            : 'text-muted-foreground'
+                        "
+                      >
+                        {{ formatTime(message.createdAt) }}
+                      </span>
+                      <MessageStatusIcon
+                        v-if="message.isOwn"
+                        :status="message.status ?? 'sent'"
+                      />
+                    </div>
+                  </div>
                   <DirectMessageContent
+                    v-else
                     :text="message.text"
                     :is-own="message.isOwn"
                     :created-at="message.createdAt"
                   />
-                  <p
-                    v-if="!isInviteMessage(message.text)"
-                    class="mt-1.5 text-[10px] opacity-70"
-                    :class="
-                      message.isOwn
-                        ? 'text-primary-foreground/80'
-                        : 'text-muted-foreground'
-                    "
-                  >
-                    {{ formatTime(message.createdAt) }}
-                  </p>
                 </div>
               </div>
             </template>
           </div>
 
           <form
-            class="messages-page__composer flex shrink-0 gap-2 border-t border-border p-4"
+            class="messages-page__composer absolute right-[10px] bottom-[10px] left-[10px] z-20 flex items-end gap-2"
             @submit.prevent="sendMessage"
           >
             <Input
+              id="messages-composer-input"
               v-model="newMessage"
-              class="messages-page__composer-input"
+              class="messages-page__composer-input h-11 min-w-0 flex-1 rounded-[30px] border border-border/50 bg-card/75 px-4 shadow-[0_8px_32px_-12px] shadow-black/10 backdrop-blur-xl outline-none focus-visible:border-border/50 focus-visible:ring-0"
               placeholder="Write a message..."
               :disabled="isSending"
             />
-            <Button type="submit" :disabled="isSending || !newMessage.trim()">
-              <PhPaperPlaneRight class="size-4" />
+            <Button
+              type="submit"
+              size="icon"
+              class="messages-page__composer-submit size-11 shrink-0 rounded-[30px] border border-border/50 shadow-md backdrop-blur-xl transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-100 disabled:shadow-none"
+              :class="
+                newMessage.trim()
+                  ? 'bg-primary text-primary-foreground shadow-primary/30 hover:bg-primary/90'
+                  : 'bg-card/75 text-muted-foreground'
+              "
+              :disabled="isSending || !newMessage.trim()"
+            >
+              <SendPlaneIcon class="size-5" />
             </Button>
           </form>
         </template>
 
         <div
           v-else
-          class="messages-page__empty flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground"
+          class="messages-page__empty relative z-10 flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center"
         >
-          Select a conversation or message a friend from their profile.
+          <span
+            class="messages-page__empty-icon flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 ring-1 ring-primary/20"
+          >
+            <PhChatsCircle class="size-8 text-primary" weight="duotone" />
+          </span>
+          <div class="space-y-1.5">
+            <p class="text-base font-semibold tracking-tight">Select a chat</p>
+            <p class="max-w-xs text-sm leading-relaxed text-muted-foreground">
+              Choose a conversation or start messaging from a friend's profile.
+            </p>
+          </div>
         </div>
       </section>
     </div>

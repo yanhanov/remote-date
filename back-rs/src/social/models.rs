@@ -101,4 +101,16 @@ pub struct DirectMessage {
     pub sender_id: String,
     pub text: String,
     pub created_at: DateTime<Utc>,
+    #[serde(
+        default,
+        serialize_with = "flexible_datetime::serialize",
+        deserialize_with = "flexible_datetime::deserialize"
+    )]
+    pub delivered_at: Option<DateTime<Utc>>,
+    #[serde(
+        default,
+        serialize_with = "flexible_datetime::serialize",
+        deserialize_with = "flexible_datetime::deserialize"
+    )]
+    pub read_at: Option<DateTime<Utc>>,
 }

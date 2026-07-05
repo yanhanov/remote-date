@@ -85,10 +85,14 @@ enum IncomingEvent {
         recipient_id: String,
         text: String,
     },
+    #[serde(rename_all = "camelCase")]
+    DmRead {
+        other_user_id: String,
+    },
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct WsQuery {
+pub struct WsQuery {
     token: Option<String>,
 }
 
@@ -609,7 +613,26 @@ async fn handle_event(
             )
             .await
             {
-                Ok(message) => {
+                Ok(mut message) => {
+                    if is_user_online(&recipient_id).await {
+                        if let Ok(Some(updated)) = app_state
+                            .social_repo
+                            .mark_delivered(&message.id)
+                            .await
+                        {
+                            message = updated;
+                        }
+
+                        notify_dm_status(
+                            &sender_id,
+                            serde_json::json!({
+                                "messageIds": [message.id.clone()],
+                                "status": "delivered",
+                            }),
+                        )
+                        .await;
+                    }
+
                     let payload = serde_json::json!({
                         "id": message.id,
                         "conversationId": message.conversation_id,
@@ -617,6 +640,9 @@ async fn handle_event(
                         "recipientId": recipient_id,
                         "text": message.text,
                         "createdAt": message.created_at,
+                        "deliveredAt": message.delivered_at,
+                        "readAt": message.read_at,
+                        "status": SocialService::message_status(&message),
                     });
 
                     broadcast_to_user(&sender_id, serde_json::json!({
@@ -631,6 +657,40 @@ async fn handle_event(
                     }))
                     .await;
                 }
+                Err(err) => {
+                    send_dm_error(conn_id, &err.to_string()).await;
+                }
+            }
+        }
+        IncomingEvent::DmRead { other_user_id } => {
+            let reader_id = {
+                let ws_state = WS_STATE.read().await;
+                ws_state.conn_users.get(&conn_id).cloned()
+            };
+
+            let Some(reader_id) = reader_id else {
+                send_dm_error(conn_id, "Authentication required for direct messages").await;
+                return;
+            };
+
+            match SocialService::mark_conversation_read(
+                &app_state.social_repo,
+                &reader_id,
+                &other_user_id,
+            )
+            .await
+            {
+                Ok(message_ids) if !message_ids.is_empty() => {
+                    notify_dm_status(
+                        &other_user_id,
+                        serde_json::json!({
+                            "messageIds": message_ids,
+                            "status": "read",
+                        }),
+                    )
+                    .await;
+                }
+                Ok(_) => {}
                 Err(err) => {
                     send_dm_error(conn_id, &err.to_string()).await;
                 }
@@ -746,6 +806,25 @@ async fn broadcast_to_user(user_id: &str, value: serde_json::Value) {
             }
         }
     }
+}
+
+pub async fn is_user_online(user_id: &str) -> bool {
+    let ws_state = WS_STATE.read().await;
+    ws_state
+        .user_conns
+        .get(user_id)
+        .is_some_and(|conns| !conns.is_empty())
+}
+
+pub async fn notify_dm_status(recipient_id: &str, payload: serde_json::Value) {
+    broadcast_to_user(
+        recipient_id,
+        serde_json::json!({
+            "event": "dm:status",
+            "payload": payload,
+        }),
+    )
+    .await;
 }
 
 async fn send_dm_error(conn_id: Uuid, message: &str) {

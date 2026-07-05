@@ -1,22 +1,14 @@
 use std::net::SocketAddr;
 
 use axum::{routing::get, Router};
+use back_rs::{
+    auth, chat, config, http, rooms, social, ws,
+};
 use dotenvy::dotenv;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-mod config;
-mod auth;
-mod chat;
-mod email;
-mod rooms;
-mod social;
-mod soundcloud;
-mod youtube;
-mod ws;
-mod http;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

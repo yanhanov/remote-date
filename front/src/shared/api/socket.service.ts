@@ -3,7 +3,7 @@ import { tokenService } from "./token.service";
 import { toast } from "vue-sonner";
 import type { VideoState } from "./room.types";
 import type { ChatMessage } from "./chat.types";
-import type { DmMessagePayload } from "./social.types";
+import type { DmMessagePayload, DmStatusPayload } from "./social.types";
 
 // Исходящие события — публичный контракт для остального кода фронта
 export interface SocketEmitEvents {
@@ -15,6 +15,7 @@ export interface SocketEmitEvents {
   "video:sync_request": (roomId: string) => void;
   "chat:send": (msg: ChatMessage) => void;
   "dm:send": (data: { recipientId: string; text: string }) => void;
+  "dm:read": (data: { otherUserId: string }) => void;
   "audio:track_change": (data: {
     roomId: string;
     trackUrl: string;
@@ -54,6 +55,7 @@ export interface SocketOnEvents {
   "room:error": (error: { message: string }) => void;
   "chat:message": (msg: ChatMessage) => void;
   "dm:message": (msg: DmMessagePayload) => void;
+  "dm:status": (payload: DmStatusPayload) => void;
   "dm:error": (error: { message: string }) => void;
   "audio:track_change": (data: {
     trackUrl: string;
@@ -316,6 +318,14 @@ class SocketService {
           event: "dmSend",
           recipientId: data.recipientId,
           text: data.text,
+        });
+        break;
+      }
+      case "dm:read": {
+        const [data] = args as [{ otherUserId: string }];
+        this.send({
+          event: "dmRead",
+          otherUserId: data.otherUserId,
         });
         break;
       }
