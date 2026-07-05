@@ -28,7 +28,7 @@ import { ThemeToggle } from "@/shared/ui/theme-toggle";
           <ThemeToggle class="app-layout__theme-toggle shrink-0" />
         </header>
         <div class="app-layout__body flex min-h-0 flex-1 flex-col overflow-hidden">
-          <RouterView class="app-layout__content flex min-h-0 flex-1 flex-col overflow-hidden" />
+          <RouterView class="app-layout__content flex min-h-0 flex-1 flex-col overflow-y-auto" />
         </div>
       </SidebarInset>
     </div>

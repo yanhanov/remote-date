@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { watchDebounced } from '@vueuse/core'
 import { toast } from 'vue-sonner'
-import { PhMagnifyingGlass, PhSpinner, PhUserPlus, PhChatCircle } from '@phosphor-icons/vue'
-import { UserAvatar } from '@/entities/user'
+import {
+  PhMagnifyingGlass,
+  PhSpinner,
+  PhUserPlus,
+  PhChatCircle,
+  PhUsers,
+} from '@phosphor-icons/vue'
+import { FriendsMemberCard } from '@/features/friends'
 import { socialAPI } from '@/shared/api/social.api'
 import type {
   FriendItem,
@@ -13,6 +20,8 @@ import type {
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 
+type FriendsTab = 'network' | 'search'
+
 const friends = ref<FriendItem[]>([])
 const incoming = ref<FriendRequestItem[]>([])
 const outgoing = ref<FriendRequestItem[]>([])
@@ -21,6 +30,9 @@ const searchResults = ref<PublicUserSummary[]>([])
 const isLoading = ref(true)
 const isSearching = ref(false)
 const actingRequestId = ref<string | null>(null)
+const activeTab = ref<FriendsTab>('network')
+
+const pendingCount = computed(() => incoming.value.length + outgoing.value.length)
 
 async function loadAll() {
   isLoading.value = true
@@ -93,147 +105,259 @@ async function rejectRequest(requestId: string) {
   }
 }
 
+function relationshipLabel(relationship?: string) {
+  if (!relationship || relationship === 'none') return 'Not connected'
+  return relationship.replace('_', ' ')
+}
+
+async function switchTab(tab: FriendsTab) {
+  activeTab.value = tab
+
+  if (tab === 'search') {
+    await nextTick()
+    document.getElementById('friends-search')?.focus()
+  }
+}
+
 onMounted(loadAll)
+
+watchDebounced(searchQuery, searchUsers, { debounce: 350 })
 </script>
 
 <template>
-  <div class="friends-page w-full max-w-2xl flex-1 p-6 md:p-8 lg:p-10">
-    <header class="friends-page__header mb-6">
-      <h1 class="friends-page__title page-title">Friends</h1>
-      <p class="friends-page__subtitle page-subtitle mt-1">
-        Find people, manage requests, and watch together.
-      </p>
-    </header>
-
-    <section class="friends-page__search mb-6 space-y-3">
-      <form class="friends-page__search-form flex gap-2" @submit.prevent="searchUsers">
-        <Input
-          v-model="searchQuery"
-          class="friends-page__search-input"
-          placeholder="Search by username, name or email"
-        />
-        <Button type="submit" variant="outline" :disabled="isSearching">
-          <PhMagnifyingGlass class="size-4" />
-        </Button>
-      </form>
-
-      <div v-if="searchResults.length" class="friends-page__search-results space-y-2">
-        <RouterLink
-          v-for="user in searchResults"
-          :key="user.userId"
-          :to="`/users/${user.userId}`"
-          class="friends-page__search-item group flex items-center gap-3 surface p-3 transition-colors hover:bg-muted/30"
-        >
-          <UserAvatar :user="user" />
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium">{{ user.displayName }}</p>
-            <p class="text-xs text-muted-foreground">
-              <span v-if="user.username">@{{ user.username }}</span>
-              <span v-else class="capitalize">{{ user.relationship?.replace('_', ' ') || 'none' }}</span>
-            </p>
-          </div>
-          <Button
-            v-if="user.relationship === 'none'"
-            type="button"
-            size="sm"
-            variant="outline"
-            class="shrink-0"
-            @click.prevent="sendRequest(user.userId)"
+  <div class="friends-page flex min-h-full flex-1 flex-col">
+    <div
+      class="friends-page__center flex flex-1 flex-col items-center justify-start p-6 md:p-10"
+    >
+      <div class="friends-page__container w-full max-w-md space-y-8">
+        <header class="friends-page__header space-y-3">
+          <p
+            class="friends-page__eyebrow text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
           >
-            <PhUserPlus class="size-3.5" />
-            Add
-          </Button>
-        </RouterLink>
-      </div>
-    </section>
-
-    <div v-if="isLoading" class="flex justify-center py-12">
-      <PhSpinner class="size-6 animate-spin text-muted-foreground" />
-    </div>
-
-    <div v-else class="friends-page__sections space-y-6">
-      <section v-if="incoming.length" class="friends-page__requests-in space-y-2">
-        <h2 class="text-sm font-medium">Incoming requests</h2>
-        <div
-          v-for="request in incoming"
-          :key="request.requestId"
-          class="flex items-center gap-3 surface p-3"
-        >
-          <RouterLink :to="`/users/${request.userId}`" class="flex min-w-0 flex-1 items-center gap-3">
-            <UserAvatar :user="request" />
-            <p class="truncate text-sm font-medium">{{ request.displayName }}</p>
-          </RouterLink>
-          <div class="flex shrink-0 gap-2">
-            <Button
-              size="sm"
-              :disabled="actingRequestId === request.requestId"
-              @click="acceptRequest(request.requestId)"
+            Social
+          </p>
+          <div class="friends-page__brand flex items-center gap-4">
+            <span
+              class="friends-page__icon flex size-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20"
             >
-              Accept
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              :disabled="actingRequestId === request.requestId"
-              @click="rejectRequest(request.requestId)"
-            >
-              Decline
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <section v-if="outgoing.length" class="friends-page__requests-out space-y-2">
-        <h2 class="text-sm font-medium">Sent requests</h2>
-        <div
-          v-for="request in outgoing"
-          :key="request.requestId"
-          class="flex items-center gap-3 surface p-3"
-        >
-          <RouterLink :to="`/users/${request.userId}`" class="flex min-w-0 flex-1 items-center gap-3">
-            <UserAvatar :user="request" />
-            <p class="truncate text-sm font-medium">{{ request.displayName }}</p>
-          </RouterLink>
-          <Button
-            size="sm"
-            variant="ghost"
-            :disabled="actingRequestId === request.requestId"
-            @click="rejectRequest(request.requestId)"
-          >
-            Cancel
-          </Button>
-        </div>
-      </section>
-
-      <section class="friends-page__list space-y-2">
-        <h2 class="text-sm font-medium">Your friends</h2>
-        <p v-if="!friends.length" class="text-sm text-muted-foreground">
-          No friends yet. Search for people above.
-        </p>
-        <div
-          v-for="friend in friends"
-          :key="friend.userId"
-          class="friends-page__friend flex items-center gap-3 surface p-3"
-        >
-          <RouterLink
-            :to="`/users/${friend.userId}`"
-            class="group flex min-w-0 flex-1 items-center gap-3 transition-colors hover:opacity-90"
-          >
-            <UserAvatar :user="friend" />
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium">{{ friend.displayName }}</p>
-              <p class="text-xs text-muted-foreground">View profile</p>
+              <PhUsers class="size-7 text-primary" weight="duotone" />
+            </span>
+            <div class="min-w-0">
+              <h1 class="friends-page__title page-title text-3xl md:text-[2rem]">Friends</h1>
+              <p class="friends-page__subtitle page-subtitle mt-1">
+                Manage your network or find someone new to watch with.
+              </p>
             </div>
-          </RouterLink>
-          <RouterLink
-            :to="`/messages/${friend.userId}`"
-            class="friends-page__friend-message flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-            aria-label="Message"
+          </div>
+        </header>
+
+        <div class="friends-page__content space-y-5">
+          <nav
+            class="friends-page__tabs flex rounded-xl border border-border/70 bg-card/50 p-1 backdrop-blur-sm"
+            aria-label="Friends sections"
           >
-            <PhChatCircle class="size-4" />
-          </RouterLink>
+            <button
+              type="button"
+              class="friends-page__tab friends-page__tab--network relative flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-sm font-medium transition-colors"
+              :class="
+                activeTab === 'network'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              "
+              @click="switchTab('network')"
+            >
+              My network
+              <span
+                v-if="pendingCount"
+                class="rounded-full bg-primary px-1.5 py-px text-[10px] font-semibold leading-none text-primary-foreground"
+              >
+                {{ pendingCount }}
+              </span>
+            </button>
+            <button
+              type="button"
+              class="friends-page__tab friends-page__tab--search flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-sm font-medium transition-colors"
+              :class="
+                activeTab === 'search'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              "
+              @click="switchTab('search')"
+            >
+              <PhMagnifyingGlass class="size-4" />
+              Find people
+            </button>
+          </nav>
+
+          <section v-if="activeTab === 'search'" class="friends-page__search space-y-3">
+            <div class="friends-page__search-field relative">
+              <PhMagnifyingGlass class="input-adornment input-adornment--leading" />
+              <Input
+                id="friends-search"
+                v-model="searchQuery"
+                class="friends-page__search-input h-11 rounded-xl border-border/80 bg-background pl-9 pr-10 shadow-none"
+                placeholder="Username, name or email"
+                autocomplete="off"
+              />
+              <PhSpinner
+                v-if="isSearching"
+                class="input-adornment input-adornment--trailing animate-spin"
+              />
+            </div>
+
+            <p
+              v-if="!searchQuery.trim()"
+              class="friends-page__search-hint text-center text-xs text-muted-foreground"
+            >
+              Start typing to discover people on Remote Date.
+            </p>
+
+            <div
+              v-else-if="!isSearching && !searchResults.length"
+              class="friends-page__search-empty rounded-xl border border-border/70 bg-card/50 px-4 py-8 text-center text-sm text-muted-foreground backdrop-blur-sm"
+            >
+              No users found for «{{ searchQuery.trim() }}».
+            </div>
+
+            <div v-else class="friends-page__search-results flex flex-col gap-2">
+              <FriendsMemberCard
+                v-for="user in searchResults"
+                :key="user.userId"
+                class="friends-page__search-item"
+                :user="user"
+                :subtitle="
+                  user.username ? `@${user.username}` : relationshipLabel(user.relationship)
+                "
+              >
+                <template v-if="user.relationship === 'none'" #actions>
+                  <Button
+                    type="button"
+                    size="sm"
+                    class="h-9 rounded-xl px-3"
+                    @click="sendRequest(user.userId)"
+                  >
+                    <PhUserPlus class="size-3.5" />
+                    Add
+                  </Button>
+                </template>
+              </FriendsMemberCard>
+            </div>
+          </section>
+
+          <section v-else class="friends-page__network">
+            <div v-if="isLoading" class="friends-page__loading flex justify-center py-12">
+              <PhSpinner class="size-6 animate-spin text-muted-foreground" />
+            </div>
+
+            <div v-else class="friends-page__sections flex flex-col gap-2">
+              <template v-if="incoming.length">
+                <p
+                  class="friends-page__section-label mb-1 px-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+                >
+                  Incoming requests
+                </p>
+                <FriendsMemberCard
+                  v-for="request in incoming"
+                  :key="request.requestId"
+                  class="friends-page__request-in"
+                  :user="request"
+                  variant="incoming"
+                  subtitle="Wants to be friends"
+                >
+                  <template #actions>
+                    <Button
+                      size="sm"
+                      class="h-9 rounded-xl px-3"
+                      :disabled="actingRequestId === request.requestId"
+                      @click="acceptRequest(request.requestId)"
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      class="h-9 rounded-xl border-2 px-3 font-medium"
+                      :disabled="actingRequestId === request.requestId"
+                      @click="rejectRequest(request.requestId)"
+                    >
+                      Decline
+                    </Button>
+                  </template>
+                </FriendsMemberCard>
+              </template>
+
+              <template v-if="outgoing.length">
+                <p
+                  class="friends-page__section-label mb-1 mt-4 px-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+                >
+                  Sent requests
+                </p>
+                <FriendsMemberCard
+                  v-for="request in outgoing"
+                  :key="request.requestId"
+                  class="friends-page__request-out"
+                  :user="request"
+                  variant="pending"
+                  subtitle="Request sent"
+                >
+                  <template #actions>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      class="h-9 rounded-xl border-2 px-3 font-medium"
+                      :disabled="actingRequestId === request.requestId"
+                      @click="rejectRequest(request.requestId)"
+                    >
+                      Cancel
+                    </Button>
+                  </template>
+                </FriendsMemberCard>
+              </template>
+
+              <p
+                class="friends-page__section-label mb-1 mt-4 px-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+              >
+                Your friends
+                <span v-if="friends.length" class="normal-case text-muted-foreground/80">
+                  · {{ friends.length }}
+                </span>
+              </p>
+
+              <p
+                v-if="!friends.length"
+                class="friends-page__empty rounded-xl border border-border/70 bg-card/50 px-4 py-8 text-center text-sm text-muted-foreground backdrop-blur-sm"
+              >
+                No friends yet.
+                <button
+                  type="button"
+                  class="mt-2 block w-full font-medium text-primary hover:underline"
+                  @click="switchTab('search')"
+                >
+                  Find people to add
+                </button>
+              </p>
+
+              <FriendsMemberCard
+                v-for="friend in friends"
+                :key="friend.userId"
+                class="friends-page__friend"
+                :user="friend"
+                :subtitle="friend.username ? `@${friend.username}` : 'Tap to view profile'"
+              >
+                <template #actions>
+                  <RouterLink
+                    :to="`/messages/${friend.userId}`"
+                    class="friends-page__friend-message flex size-9 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+                    aria-label="Message"
+                  >
+                    <PhChatCircle class="size-4" />
+                  </RouterLink>
+                </template>
+              </FriendsMemberCard>
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
     </div>
   </div>
 </template>

@@ -80,7 +80,7 @@ function submitSearch() {
   <div class="youtube-video-search relative">
     <div class="youtube-video-search__field relative">
       <PhMagnifyingGlass
-        class="youtube-video-search__icon pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+        class="youtube-video-search__icon input-adornment input-adornment--leading"
       />
       <Input
         v-model="searchQuery"

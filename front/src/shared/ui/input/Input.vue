@@ -61,7 +61,7 @@ function togglePasswordVisibility() {
       v-if="isPasswordVariant"
       type="button"
       @click="togglePasswordVisibility"
-      class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
+      class="absolute right-3 top-1/2 z-10 -translate-y-1/2 text-foreground/55 transition-colors hover:text-foreground focus:outline-none"
       tabindex="-1">
       <PhEye v-if="!showPassword" class="h-4 w-4" />
       <PhEyeSlash v-else class="h-4 w-4" />

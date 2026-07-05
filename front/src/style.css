@@ -174,4 +174,16 @@ body {
   .page-subtitle {
     @apply text-sm leading-relaxed text-muted-foreground;
   }
+
+  .input-adornment {
+    @apply pointer-events-none absolute z-10 text-foreground/55;
+  }
+
+  .input-adornment--leading {
+    @apply left-3 top-1/2 size-4 -translate-y-1/2;
+  }
+
+  .input-adornment--trailing {
+    @apply right-3 top-1/2 size-4 -translate-y-1/2;
+  }
 }

@@ -147,7 +147,7 @@ function submitSearch() {
     <div class="soundcloud-track-search__field relative">
       <div class="soundcloud-track-search__input-wrap relative">
         <span
-          class="soundcloud-track-search__icon-wrap pointer-events-none absolute left-3 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center text-muted-foreground"
+          class="soundcloud-track-search__icon-wrap input-adornment input-adornment--leading flex items-center justify-center"
         >
           <PhSpinner
             v-if="isSearching || isSelectingTrack"
