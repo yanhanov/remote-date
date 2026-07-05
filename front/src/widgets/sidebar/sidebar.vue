@@ -42,12 +42,12 @@ watch(
 );
 
 const navButtonClass =
-  "app-sidebar__nav-button rounded-lg text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:font-medium data-[active=true]:shadow-none group-data-[collapsible=icon]:justify-center";
+  "app-sidebar__nav-button rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:font-medium data-[active=true]:shadow-none group-data-[collapsible=icon]:justify-center";
 
 const profileButtonClass = computed(() =>
   isCollapsed.value
     ? `${navButtonClass} app-sidebar__profile-button app-sidebar__profile-button--collapsed`
-    : "app-sidebar__profile-button h-auto min-h-12 rounded-lg py-2.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:font-medium data-[active=true]:shadow-none",
+    : "app-sidebar__profile-button h-auto min-h-12 rounded-md py-2.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:font-medium data-[active=true]:shadow-none",
 );
 
 function isNavActive(url: string): boolean {
@@ -108,20 +108,24 @@ const secondaryItems = [
       >
         <RouterLink
           to="/"
-          class="app-sidebar__logo flex items-center rounded-lg text-foreground transition-opacity hover:opacity-80"
+          class="app-sidebar__logo flex items-center rounded-md text-foreground transition-opacity hover:opacity-80"
           :class="isCollapsed ? 'justify-center' : 'gap-2.5 px-1 py-1'"
         >
           <span
-            class="app-sidebar__logo-mark flex shrink-0 items-center justify-center rounded-lg bg-sidebar-primary font-semibold tracking-tight text-sidebar-primary-foreground"
-            :class="isCollapsed ? 'size-9 text-xs' : 'size-8 text-[11px]'"
+            class="app-sidebar__logo-mark relative flex shrink-0 items-center justify-center rounded-md bg-primary"
+            :class="isCollapsed ? 'size-9' : 'size-8'"
           >
-            R
+            <span class="size-2 rounded-full bg-primary-foreground/90" />
+            <span
+              class="absolute size-2 rounded-full border border-primary-foreground/90 bg-transparent"
+              :class="isCollapsed ? 'translate-x-1.5' : 'translate-x-1'"
+            />
           </span>
           <span
             v-if="!isCollapsed"
-            class="app-sidebar__logo-text truncate text-sm font-semibold tracking-tight"
+            class="app-sidebar__logo-text truncate text-sm font-semibold tracking-[-0.02em]"
           >
-            Remote
+            Remote Date
           </span>
         </RouterLink>
       </SidebarHeader>

@@ -211,7 +211,7 @@ onMounted(loadProfile)
 
     <article
       v-else
-      class="user-profile-page__card overflow-hidden rounded-2xl border border-border/60 bg-card/40 shadow-sm"
+      class="user-profile-page__card surface overflow-hidden"
     >
       <div
         class="user-profile-page__banner relative h-28 bg-gradient-to-br from-primary/25 via-primary/10 to-transparent md:h-36"
@@ -324,10 +324,10 @@ onMounted(loadProfile)
             <div
               v-for="item in infoItems"
               :key="item.label"
-              class="user-profile-page__info-item flex items-start gap-3 rounded-xl border border-border/60 bg-background/40 p-4"
+              class="user-profile-page__info-item surface-inset flex items-start gap-3 p-4"
             >
               <span
-                class="user-profile-page__info-icon flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+                class="user-profile-page__info-icon flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
               >
                 <component :is="item.icon" class="size-4" weight="duotone" />
               </span>
@@ -352,7 +352,7 @@ onMounted(loadProfile)
 
         <section
           v-if="profile.relationship === 'friend' && friendsSinceFormatted"
-          class="user-profile-page__friends-since mt-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-center text-sm text-muted-foreground"
+          class="user-profile-page__friends-since mt-6 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-center text-sm text-muted-foreground"
         >
           Friends since
           <span class="font-medium text-foreground">{{ friendsSinceFormatted }}</span>

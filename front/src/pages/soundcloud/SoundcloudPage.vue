@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
-import { PhArrowRight, PhSpinner, PhSignIn, PhPlus } from '@phosphor-icons/vue'
+import { PhSpinner, PhSignIn, PhPlus } from '@phosphor-icons/vue'
 import { LastRoomCard, useLastRoom } from '@/entities/room'
 import { roomAPI } from '@/shared/api/room.api'
 import { Input } from '@/shared/ui/input'
@@ -64,25 +64,25 @@ async function joinRoom() {
 </script>
 
 <template>
-  <div class="soundcloud-page flex flex-1 flex-col items-center justify-center p-6">
-    <div class="soundcloud-page__container w-full max-w-sm space-y-8">
-      <header class="soundcloud-page__header space-y-1.5 text-center">
-        <div class="soundcloud-page__brand flex items-center justify-center gap-2.5">
+  <div class="soundcloud-page flex flex-1 flex-col items-center justify-center p-6 md:p-10">
+    <div class="soundcloud-page__container w-full max-w-md space-y-8">
+      <header class="soundcloud-page__header space-y-3">
+        <div class="soundcloud-page__brand flex items-center gap-3">
           <span
-            class="soundcloud-page__icon flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50"
+            class="soundcloud-page__icon flex size-10 items-center justify-center rounded-md bg-[var(--soundcloud)]/8"
           >
-            <SoundCloudIcon class="soundcloud-page__icon-svg size-5 opacity-90" />
+            <SoundCloudIcon class="soundcloud-page__icon-svg size-5" />
           </span>
-          <h1 class="soundcloud-page__title text-2xl font-semibold tracking-tight">
-            SoundCloud
-          </h1>
+          <div>
+            <h1 class="soundcloud-page__title page-title">SoundCloud</h1>
+            <p class="soundcloud-page__subtitle page-subtitle">
+              Create a room or join by ID.
+            </p>
+          </div>
         </div>
-        <p class="soundcloud-page__subtitle text-sm text-muted-foreground">
-          Create a room or join by ID.
-        </p>
       </header>
 
-      <div class="soundcloud-page__actions space-y-2">
+      <div class="soundcloud-page__actions space-y-3">
         <LastRoomCard
           v-if="lastRoom && !lastRoomLoading"
           class="soundcloud-page__last-room"
@@ -90,52 +90,44 @@ async function joinRoom() {
           room-type="soundcloud"
         />
 
-        <button
-          type="button"
-          class="soundcloud-page__create group flex w-full items-center gap-3 rounded-xl border border-border/60 bg-card/40 p-4 text-left transition-colors hover:border-border hover:bg-muted/30 disabled:pointer-events-none disabled:opacity-60"
+        <Button
+          class="soundcloud-page__create h-auto w-full justify-start gap-3 px-4 py-4"
           :disabled="createLoading"
           @click="createRoom"
         >
           <span
-            class="soundcloud-page__create-icon flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50"
+            class="soundcloud-page__create-icon flex size-9 shrink-0 items-center justify-center rounded-md bg-primary-foreground/15"
           >
             <PhSpinner
               v-if="createLoading"
-              class="soundcloud-page__create-spinner size-4 animate-spin text-muted-foreground"
+              class="soundcloud-page__create-spinner size-4 animate-spin"
             />
-            <PhPlus v-else class="soundcloud-page__create-plus size-4 text-muted-foreground" />
+            <PhPlus v-else class="soundcloud-page__create-plus size-4" />
           </span>
-
-          <span class="soundcloud-page__create-body min-w-0 flex-1">
+          <span class="soundcloud-page__create-body min-w-0 flex-1 text-left">
             <span class="soundcloud-page__create-title block text-sm font-medium">
               {{ createLoading ? 'Creating...' : 'Create room' }}
             </span>
             <span
-              class="soundcloud-page__create-description mt-0.5 block text-xs text-muted-foreground"
+              class="soundcloud-page__create-description mt-0.5 block text-xs opacity-80"
             >
               Pick a track inside the room
             </span>
           </span>
+        </Button>
 
-          <PhArrowRight
-            class="soundcloud-page__create-arrow size-4 shrink-0 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
-          />
-        </button>
-
-        <section
-          class="soundcloud-page__join rounded-xl border border-border/60 bg-card/40 p-4 space-y-3"
-        >
+        <section class="soundcloud-page__join surface space-y-4 p-5">
           <div class="soundcloud-page__join-header flex items-center gap-2">
             <PhSignIn class="soundcloud-page__join-icon size-4 text-muted-foreground" />
-            <h2 class="soundcloud-page__join-title text-sm font-medium">Join room</h2>
+            <h2 class="soundcloud-page__join-title text-sm font-medium">Join by ID</h2>
           </div>
 
           <Input
             id="room-id"
             v-model="roomIdToJoin"
-            class="soundcloud-page__join-input h-10 border-border/60 bg-background/60 shadow-none"
+            class="soundcloud-page__join-input h-10 shadow-none"
             type="text"
-            placeholder="Room ID"
+            placeholder="Paste room ID"
             @keyup.enter="joinRoom"
           />
 

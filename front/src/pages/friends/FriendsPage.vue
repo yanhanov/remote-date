@@ -99,8 +99,8 @@ onMounted(loadAll)
 <template>
   <div class="friends-page w-full max-w-2xl flex-1 p-6 md:p-8 lg:p-10">
     <header class="friends-page__header mb-6">
-      <h1 class="friends-page__title text-2xl font-semibold tracking-tight">Friends</h1>
-      <p class="friends-page__subtitle mt-1 text-sm text-muted-foreground">
+      <h1 class="friends-page__title page-title">Friends</h1>
+      <p class="friends-page__subtitle page-subtitle mt-1">
         Find people, manage requests, and watch together.
       </p>
     </header>
@@ -122,7 +122,7 @@ onMounted(loadAll)
           v-for="user in searchResults"
           :key="user.userId"
           :to="`/users/${user.userId}`"
-          class="friends-page__search-item group flex items-center gap-3 rounded-xl border border-border/60 bg-card/40 p-3 transition-colors hover:bg-muted/30"
+          class="friends-page__search-item group flex items-center gap-3 surface p-3 transition-colors hover:bg-muted/30"
         >
           <UserAvatar :user="user" />
           <div class="min-w-0 flex-1">
@@ -157,7 +157,7 @@ onMounted(loadAll)
         <div
           v-for="request in incoming"
           :key="request.requestId"
-          class="flex items-center gap-3 rounded-xl border border-border/60 bg-card/40 p-3"
+          class="flex items-center gap-3 surface p-3"
         >
           <RouterLink :to="`/users/${request.userId}`" class="flex min-w-0 flex-1 items-center gap-3">
             <UserAvatar :user="request" />
@@ -188,7 +188,7 @@ onMounted(loadAll)
         <div
           v-for="request in outgoing"
           :key="request.requestId"
-          class="flex items-center gap-3 rounded-xl border border-border/60 bg-card/40 p-3"
+          class="flex items-center gap-3 surface p-3"
         >
           <RouterLink :to="`/users/${request.userId}`" class="flex min-w-0 flex-1 items-center gap-3">
             <UserAvatar :user="request" />
@@ -213,7 +213,7 @@ onMounted(loadAll)
         <div
           v-for="friend in friends"
           :key="friend.userId"
-          class="friends-page__friend flex items-center gap-3 rounded-xl border border-border/60 bg-card/40 p-3"
+          class="friends-page__friend flex items-center gap-3 surface p-3"
         >
           <RouterLink
             :to="`/users/${friend.userId}`"

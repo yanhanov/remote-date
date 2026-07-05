@@ -102,7 +102,7 @@ function submitSearch() {
 
 <template>
   <section
-    class="soundcloud-track-search relative shrink-0 rounded-xl border border-border/60 bg-card/40 p-4"
+    class="soundcloud-track-search relative shrink-0 surface p-4"
     :class="{ 'soundcloud-track-search--open z-30': suggestions.length }"
   >
     <header

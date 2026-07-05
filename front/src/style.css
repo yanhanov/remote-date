@@ -1,10 +1,12 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
-@import '@/shared/assets/styles/fonts.css';
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@/shared/assets/styles/fonts.css";
 
 body {
-  font-size: clamp(0.75rem, 1vw, 1rem);
-  font-family: 'Google Sans', sans-serif;
+  font-size: clamp(0.8125rem, 0.9vw, 0.9375rem);
+  font-family: "Google Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @custom-variant dark (&:is(.dark *));
@@ -129,13 +131,47 @@ body {
   :root body {
     background-color: var(--background);
     background-image:
-      radial-gradient(ellipse 90% 60% at 50% -30%, oklch(0.9 0.05 275 / 0.18), transparent),
-      radial-gradient(ellipse 50% 40% at 100% 0%, oklch(0.92 0.03 280 / 0.1), transparent);
+      radial-gradient(
+        ellipse 90% 60% at 50% -30%,
+        oklch(0.9 0.05 275 / 0.18),
+        transparent
+      ),
+      radial-gradient(
+        ellipse 50% 40% at 100% 0%,
+        oklch(0.92 0.03 280 / 0.1),
+        transparent
+      );
   }
 
   .dark body {
     background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, oklch(0.38 0.08 275 / 0.2), transparent),
-      radial-gradient(ellipse 40% 30% at 0% 100%, oklch(0.28 0.04 280 / 0.12), transparent);
+      radial-gradient(
+        ellipse 80% 50% at 50% -20%,
+        oklch(0.38 0.08 275 / 0.2),
+        transparent
+      ),
+      radial-gradient(
+        ellipse 40% 30% at 0% 100%,
+        oklch(0.28 0.04 280 / 0.12),
+        transparent
+      );
+  }
+}
+
+@layer components {
+  .surface {
+    @apply rounded-lg border border-border bg-card shadow-sm;
+  }
+
+  .surface-inset {
+    @apply rounded-lg border border-border/80 bg-muted/40;
+  }
+
+  .page-title {
+    @apply text-[1.625rem] font-semibold tracking-[-0.02em] text-foreground;
+  }
+
+  .page-subtitle {
+    @apply text-sm leading-relaxed text-muted-foreground;
   }
 }

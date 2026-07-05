@@ -15,7 +15,7 @@ import { ThemeToggle } from "@/shared/ui/theme-toggle";
 
       <SidebarInset class="app-layout__main min-h-0 overflow-hidden">
         <header
-          class="app-layout__header flex h-12 shrink-0 items-center justify-between gap-2 px-4 md:h-14"
+          class="app-layout__header flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border/80 bg-background/80 px-4 backdrop-blur-sm md:h-14"
         >
           <div
             class="app-layout__header-start flex min-w-0 flex-1 items-center gap-2"

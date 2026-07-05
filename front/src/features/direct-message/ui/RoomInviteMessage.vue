@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import { PhTelevisionSimple, PhMusicNotes } from '@phosphor-icons/vue'
 import type { RoomInvitePayload } from '@/shared/lib/room-invite-message'
 import YouTubeIcon from '@/shared/ui/icons/YouTubeIcon.vue'
 import SoundCloudIcon from '@/shared/ui/icons/SoundCloudIcon.vue'
@@ -59,11 +58,6 @@ const subtitle = computed(() =>
         </p>
         <p class="room-invite-message__title truncate text-sm font-medium">{{ title }}</p>
       </div>
-      <PhTelevisionSimple
-        v-if="invite.roomType === 'youtube'"
-        class="room-invite-message__accent size-4 shrink-0 text-primary/70"
-      />
-      <PhMusicNotes v-else class="room-invite-message__accent size-4 shrink-0 text-primary/70" />
     </header>
 
     <div class="room-invite-message__body space-y-3 p-4">
@@ -81,7 +75,7 @@ const subtitle = computed(() =>
 
     <time
       v-if="formattedTime"
-      class="room-invite-message__time absolute bottom-2 text-[10px] text-muted-foreground/75"
+      class="room-invite-message__time absolute bottom-2 text-[10px] text-muted-foreground"
       :class="isOwn ? 'right-3' : 'left-3'"
     >
       {{ formattedTime }}

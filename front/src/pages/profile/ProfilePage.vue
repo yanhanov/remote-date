@@ -239,7 +239,7 @@ async function logout() {
 
     <div class="profile-page__layout grid gap-6 lg:grid-cols-[minmax(0,14rem)_1fr] lg:gap-8">
       <aside
-        class="profile-page__sidebar rounded-xl border border-border/60 bg-card/40 p-5 lg:sticky lg:top-6 lg:self-start"
+        class="profile-page__sidebar surface p-5 lg:sticky lg:top-6 lg:self-start"
       >
         <div
           class="profile-page__avatar-zone group relative mx-auto w-fit lg:mx-0"
@@ -329,7 +329,7 @@ async function logout() {
 
       <div class="profile-page__panels space-y-4">
         <form
-          class="profile-page__form flex flex-col rounded-xl border border-border/60 bg-card/40"
+          class="profile-page__form flex flex-col surface"
           @submit.prevent="onSubmit"
         >
           <div class="profile-page__form-header border-b border-border/60 px-5 py-4 md:px-6">
@@ -438,7 +438,7 @@ async function logout() {
         </form>
 
         <section
-          class="profile-page__settings rounded-xl border border-border/60 bg-card/40 p-5 md:p-6"
+          class="profile-page__settings surface p-5 md:p-6"
         >
           <h2 class="profile-page__settings-title text-sm font-medium">Settings</h2>
           <p class="profile-page__settings-description mt-0.5 text-xs text-muted-foreground">

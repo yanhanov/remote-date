@@ -152,10 +152,10 @@ const handleDialogClose = () => {
 </script>
 
 <template>
-  <Card class="register-form w-full max-w-md">
-    <CardHeader class="register-form__header">
-      <CardTitle class="register-form__title text-2xl font-bold">Register</CardTitle>
-      <CardDescription class="register-form__description">Register to your account to continue</CardDescription>
+  <Card class="register-form w-full border-border shadow-sm">
+    <CardHeader class="register-form__header space-y-1">
+      <CardTitle class="register-form__title page-title">Create account</CardTitle>
+      <CardDescription class="register-form__description page-subtitle">Join and start watching together</CardDescription>
     </CardHeader>
     <CardContent class="register-form__content">
       <form class="register-form__form flex flex-col items-stretch justify-center gap-4" @submit="handleRegister">

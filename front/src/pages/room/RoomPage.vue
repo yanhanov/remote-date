@@ -97,7 +97,7 @@ function handleVideoSelect(video: YoutubeVideo) {
   >
     <div
       v-if="loading"
-      class="room-page__loading overflow-hidden rounded-xl border border-border/60 bg-card/40 p-4"
+      class="room-page__loading overflow-hidden surface p-4"
     >
       <Skeleton class="room-page__skeleton aspect-video w-full rounded-lg" />
     </div>
@@ -150,7 +150,7 @@ function handleVideoSelect(video: YoutubeVideo) {
 
           <section
             v-show="!isTheater"
-            class="room-page__search-panel shrink-0 rounded-xl border border-border/60 bg-card/40 p-4"
+            class="room-page__search-panel shrink-0 surface p-4"
           >
             <div class="room-page__search-header mb-3 space-y-0.5">
               <h2 class="room-page__search-title text-sm font-medium">Choose a video</h2>

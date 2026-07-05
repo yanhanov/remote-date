@@ -87,7 +87,7 @@ onBeforeRouteLeave(() => {
 <template>
   <div class="sound-room-page flex w-full flex-1 flex-col min-h-0">
     <div v-if="loading" class="sound-room-page__loading p-4 md:p-6">
-      <div class="overflow-hidden rounded-xl border border-border/60 bg-card/40 p-4">
+      <div class="overflow-hidden surface p-4">
         <Skeleton class="h-96 w-full rounded-lg" />
       </div>
     </div>

@@ -28,7 +28,7 @@ const emit = defineEmits<{
     :class="
       theater
         ? 'youtube-player-card--theater bg-black'
-        : 'rounded-xl border border-border/60 bg-card/40'
+        : 'surface'
     "
   >
     <header

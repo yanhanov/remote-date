@@ -59,10 +59,10 @@ const handleLogin = async (e: Event) => {
 </script>
 
 <template>
-  <Card class="login-form w-full max-w-md">
-    <CardHeader class="login-form__header">
-      <CardTitle class="login-form__title text-2xl font-bold">Login</CardTitle>
-      <CardDescription class="login-form__description">Login to your account to continue</CardDescription>
+  <Card class="login-form w-full border-border shadow-sm">
+    <CardHeader class="login-form__header space-y-1">
+      <CardTitle class="login-form__title page-title">Welcome back</CardTitle>
+      <CardDescription class="login-form__description page-subtitle">Sign in to continue watching together</CardDescription>
     </CardHeader>
     <CardContent class="login-form__content">
       <form class="login-form__form flex flex-col items-stretch justify-center gap-4" @submit="handleLogin">

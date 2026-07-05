@@ -122,20 +122,20 @@ onMounted(loadConversations)
     class="messages-page flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8"
   >
     <header class="messages-page__header mb-4 shrink-0">
-      <h1 class="messages-page__title text-2xl font-semibold tracking-tight">Messages</h1>
-      <p class="messages-page__subtitle mt-1 text-sm text-muted-foreground">
+      <h1 class="messages-page__title page-title">Messages</h1>
+      <p class="messages-page__subtitle page-subtitle mt-1">
         Chat with your friends outside rooms.
       </p>
     </header>
 
     <div
-      class="messages-page__layout grid min-h-0 w-full flex-1 overflow-hidden rounded-xl border border-border/60 bg-card/40 grid-rows-[minmax(0,11rem)_minmax(0,1fr)] md:grid-cols-[minmax(0,16rem)_1fr] md:grid-rows-1"
+      class="messages-page__layout surface grid min-h-0 w-full flex-1 overflow-hidden grid-rows-[minmax(0,11rem)_minmax(0,1fr)] md:grid-cols-[minmax(0,16rem)_1fr] md:grid-rows-1"
     >
       <aside
-        class="messages-page__sidebar flex min-h-0 flex-col overflow-hidden border-b border-border/60 md:border-b-0 md:border-r"
+        class="messages-page__sidebar flex min-h-0 flex-col overflow-hidden border-b border-border md:border-b-0 md:border-r"
       >
         <div
-          class="messages-page__sidebar-header shrink-0 border-b border-border/60 px-4 py-3"
+          class="messages-page__sidebar-header shrink-0 border-b border-border px-4 py-3"
         >
           <p class="text-sm font-medium">Conversations</p>
         </div>
@@ -160,9 +160,9 @@ onMounted(loadConversations)
             v-for="conversation in conversations"
             :key="conversation.conversationId"
             type="button"
-            class="messages-page__conversation-item flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted/40"
+            class="messages-page__conversation-item flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted"
             :class="{
-              'bg-muted/50': activeUserId === conversation.userId,
+              'bg-muted': activeUserId === conversation.userId,
             }"
             @click="openConversation(conversation.userId)"
           >
@@ -185,7 +185,7 @@ onMounted(loadConversations)
       <section class="messages-page__thread flex min-h-0 min-w-0 flex-col overflow-hidden">
         <template v-if="activeUserId">
           <header
-            class="messages-page__thread-header flex shrink-0 items-center gap-3 border-b border-border/60 px-4 py-3"
+            class="messages-page__thread-header flex shrink-0 items-center gap-3 border-b border-border px-4 py-3"
           >
             <RouterLink :to="`/users/${activeUserId}`" class="flex items-center gap-3">
               <UserAvatar
@@ -221,11 +221,11 @@ onMounted(loadConversations)
                     cn(
                       isInviteMessage(message.text)
                         ? 'w-full max-w-[min(100%,20rem)]'
-                        : 'max-w-[75%] rounded-2xl px-3 py-2 text-sm',
+                        : 'max-w-[75%] px-3.5 py-2 text-sm',
                       !isInviteMessage(message.text) &&
                         (message.isOwn
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-foreground'),
+                          ? 'rounded-lg rounded-br-sm bg-primary text-primary-foreground'
+                          : 'rounded-lg rounded-bl-sm bg-muted text-foreground'),
                     )
                   "
                 >
@@ -251,7 +251,7 @@ onMounted(loadConversations)
           </div>
 
           <form
-            class="messages-page__composer flex shrink-0 gap-2 border-t border-border/60 p-4"
+            class="messages-page__composer flex shrink-0 gap-2 border-t border-border p-4"
             @submit.prevent="sendMessage"
           >
             <Input

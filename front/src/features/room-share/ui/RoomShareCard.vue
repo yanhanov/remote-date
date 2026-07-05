@@ -14,7 +14,7 @@ const inviteOpen = ref(false)
 </script>
 
 <template>
-  <section class="room-share-card rounded-xl border border-border/60 bg-card/40 p-4">
+  <section class="room-share-card surface p-4">
     <Button
       type="button"
       variant="secondary"

@@ -71,7 +71,7 @@ watch(
     :class="
       theater
         ? 'room-chat-panel--theater rounded-none border-0 border-t border-white/10 bg-zinc-950 md:border-l md:border-t-0'
-        : 'rounded-xl border border-border/60 bg-card/40'
+        : 'surface'
     "
   >
     <header
