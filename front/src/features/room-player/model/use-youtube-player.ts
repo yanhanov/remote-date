@@ -11,6 +11,43 @@ let videoSocketListenersBound = false
 
 const MAX_VIDEO_STATE_RETRIES = 20
 
+// #region agent log
+let lastPlayerHost: HTMLElement | null = null
+function dbg(
+  location: string,
+  message: string,
+  data: Record<string, unknown>,
+  hypothesisId: string,
+) {
+  fetch('http://127.0.0.1:7447/ingest/70cb9cea-c092-4f94-92a0-53aa04217325', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '86925f' },
+    body: JSON.stringify({
+      sessionId: '86925f',
+      location,
+      message,
+      data,
+      timestamp: Date.now(),
+      hypothesisId,
+    }),
+  }).catch(() => {})
+}
+function playerElementDebug() {
+  const el = document.getElementById(YOUTUBE_PLAYER_ELEMENT_ID)
+  const iframe = el?.querySelector('iframe')
+  const hostChanged = lastPlayerHost !== null && lastPlayerHost !== el
+  if (el) lastPlayerHost = el
+  return {
+    hostExists: Boolean(el),
+    hostChanged,
+    childCount: el?.childElementCount ?? 0,
+    iframeConnected: Boolean(iframe?.isConnected),
+    iframeInHost: Boolean(el && iframe && el.contains(iframe)),
+    iframeSrc: iframe?.src?.slice(0, 100) ?? null,
+  }
+}
+// #endregion
+
 export function useYoutubePlayer(
   roomId: string,
   room: Ref<VideoRoom | null>,
@@ -64,8 +101,119 @@ export function useYoutubePlayer(
     videoSocketListenersBound = false
   }
 
+  function getPlayerElement() {
+    return document.getElementById(YOUTUBE_PLAYER_ELEMENT_ID)
+  }
+
+  function capturePlaybackState() {
+    if (!player || !playerReady.value) return null
+
+    try {
+      return {
+        currentTime: player.getCurrentTime?.() ?? 0,
+        isPlaying: player.getPlayerState?.() === 1,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  function restorePlaybackState(state: { currentTime: number; isPlaying: boolean }) {
+    if (!player || !playerReady.value) return
+
+    try {
+      isLocalAction.value = true
+      player.seekTo?.(state.currentTime, true)
+      if (state.isPlaying) player.playVideo?.()
+      else player.pauseVideo?.()
+    } catch (e) {
+      console.error('Error restoring playback state:', e)
+    } finally {
+      setTimeout(() => {
+        isLocalAction.value = false
+      }, 300)
+    }
+  }
+
+  function ensurePlayerAttached() {
+    const cached = playerRegistry.get(roomId)
+    const playerElement = getPlayerElement()
+    const before = playerElementDebug()
+
+    if (!cached?.player || !cached.ready) {
+      // #region agent log
+      dbg('use-youtube-player.ts:ensurePlayerAttached', 'attach failed: no cache', { before, hasCache: Boolean(cached) }, 'A')
+      // #endregion
+      return false
+    }
+
+    if (!playerElement) {
+      // #region agent log
+      dbg('use-youtube-player.ts:ensurePlayerAttached', 'attach failed: no element', { before }, 'B')
+      // #endregion
+      return false
+    }
+
+    try {
+      const iframe = cached.player.getIframe?.()
+      if (!iframe) {
+        // #region agent log
+        dbg('use-youtube-player.ts:ensurePlayerAttached', 'attach failed: no iframe', { before }, 'A')
+        // #endregion
+        return false
+      }
+
+      const didReattach = !playerElement.contains(iframe)
+      if (didReattach) {
+        playerElement.replaceChildren(iframe)
+      }
+
+      player = cached.player
+      playerReady.value = true
+      // #region agent log
+      dbg('use-youtube-player.ts:ensurePlayerAttached', 'attach ok', { before, after: playerElementDebug(), didReattach }, 'B')
+      // #endregion
+      return true
+    } catch {
+      playerRegistry.delete(roomId)
+      // #region agent log
+      dbg('use-youtube-player.ts:ensurePlayerAttached', 'attach failed: exception', { before }, 'A')
+      // #endregion
+      return false
+    }
+  }
+
+  async function syncLayout() {
+    const playbackState = capturePlaybackState()
+    // #region agent log
+    dbg('use-youtube-player.ts:syncLayout', 'start', { playbackState, playerReady: playerReady.value, hasPlayer: Boolean(player), ...playerElementDebug() }, 'A')
+    // #endregion
+
+    await nextTick()
+    await nextTick()
+
+    if (ensurePlayerAttached()) {
+      handleResize()
+      if (playbackState) restorePlaybackState(playbackState)
+      // #region agent log
+      dbg('use-youtube-player.ts:syncLayout', 'path: reattach only', { ...playerElementDebug() }, 'A')
+      // #endregion
+      return
+    }
+
+    if (room.value?.youtubeVideoId) {
+      // #region agent log
+      dbg('use-youtube-player.ts:syncLayout', 'path: reinitialize', { videoId: room.value.youtubeVideoId, ...playerElementDebug() }, 'A')
+      // #endregion
+      playerReady.value = false
+      player = null
+      await initializePlayer()
+      if (playbackState) restorePlaybackState(playbackState)
+    }
+  }
+
   function handleResize() {
-    const playerElement = document.getElementById(YOUTUBE_PLAYER_ELEMENT_ID)
+    const playerElement = getPlayerElement()
     if (!player || !playerReady.value || !playerElement?.parentElement) return
 
     const rect = playerElement.parentElement.getBoundingClientRect()
@@ -80,6 +228,9 @@ export function useYoutubePlayer(
   }
 
   function destroyPlayer() {
+    // #region agent log
+    dbg('use-youtube-player.ts:destroyPlayer', 'called', { stack: new Error().stack?.split('\n').slice(1, 4) }, 'D')
+    // #endregion
     if (seekInterval) {
       clearInterval(seekInterval)
       seekInterval = null
@@ -118,19 +269,10 @@ export function useYoutubePlayer(
   }
 
   async function doInitializePlayer() {
-    const cached = playerRegistry.get(roomId)
-    if (cached?.player && cached.ready) {
-      try {
-        const iframe = cached.player.getIframe?.()
-        if (iframe?.isConnected) {
-          player = cached.player
-          playerReady.value = true
-          window.addEventListener('resize', handleResize)
-          return
-        }
-      } catch {
-        playerRegistry.delete(roomId)
-      }
+    if (ensurePlayerAttached()) {
+      window.addEventListener('resize', handleResize)
+      handleResize()
+      return
     }
 
     if (player || playerReady.value) return
@@ -146,11 +288,11 @@ export function useYoutubePlayer(
     await nextTick()
     await nextTick()
 
-    let playerElement = document.getElementById(YOUTUBE_PLAYER_ELEMENT_ID)
+    let playerElement = getPlayerElement()
     let retries = 0
     while (!playerElement && retries < 10) {
       await new Promise((resolve) => setTimeout(resolve, 100))
-      playerElement = document.getElementById(YOUTUBE_PLAYER_ELEMENT_ID)
+      playerElement = getPlayerElement()
       retries++
     }
 
@@ -191,6 +333,10 @@ export function useYoutubePlayer(
         playerVars.start = startSeconds
       }
 
+      // #region agent log
+      dbg('use-youtube-player.ts:doInitializePlayer', 'creating new YT.Player', { videoId, ...playerElementDebug() }, 'C')
+      // #endregion
+
       player = new YT.Player(YOUTUBE_PLAYER_ELEMENT_ID, {
         videoId,
         width,
@@ -220,6 +366,10 @@ export function useYoutubePlayer(
     playerReady.value = true
     player = event.target
     playerRegistry.set(roomId, { player, ready: true })
+
+    // #region agent log
+    dbg('use-youtube-player.ts:onPlayerReady', 'player ready (new init)', { ...playerElementDebug() }, 'E')
+    // #endregion
 
     window.addEventListener('resize', handleResize)
     handleResize()
@@ -526,5 +676,6 @@ export function useYoutubePlayer(
     setup,
     teardown,
     changeVideo,
+    syncLayout,
   }
 }

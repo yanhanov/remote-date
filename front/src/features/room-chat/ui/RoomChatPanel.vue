@@ -15,6 +15,7 @@ const props = defineProps<{
   newMessage: string
   loading?: boolean
   currentUserName?: string | null
+  theater?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -66,12 +67,27 @@ watch(
 
 <template>
   <section
-    class="room-chat-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40"
+    class="room-chat-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
+    :class="
+      theater
+        ? 'room-chat-panel--theater rounded-none border-0 border-t border-white/10 bg-zinc-950 md:border-l md:border-t-0'
+        : 'rounded-xl border border-border/60 bg-card/40'
+    "
   >
     <header
-      class="room-chat-panel__header shrink-0 border-b border-border/40 px-4 py-3"
+      class="room-chat-panel__header shrink-0 border-b px-4"
+      :class="
+        theater
+          ? 'room-chat-panel__header--theater flex h-14 items-center border-white/10'
+          : 'border-border/40 py-3'
+      "
     >
-      <h2 class="room-chat-panel__title text-sm font-medium">Chat</h2>
+      <h2
+        class="room-chat-panel__title text-sm font-medium"
+        :class="theater ? 'text-white' : ''"
+      >
+        Chat
+      </h2>
     </header>
 
     <div
@@ -80,7 +96,8 @@ watch(
     >
       <p
         v-if="!sortedMessages.length && !loading"
-        class="room-chat-panel__empty py-8 text-center text-xs text-muted-foreground"
+        class="room-chat-panel__empty py-8 text-center text-xs"
+        :class="theater ? 'text-white/40' : 'text-muted-foreground'"
       >
         No messages yet. Start the conversation!
       </p>
@@ -139,13 +156,19 @@ watch(
     </div>
 
     <footer
-      class="room-chat-panel__composer shrink-0 border-t border-border/40 p-3"
+      class="room-chat-panel__composer shrink-0 border-t p-3"
+      :class="theater ? 'border-white/10' : 'border-border/40'"
     >
       <div class="room-chat-panel__composer-row flex min-w-0 items-center gap-2">
         <div class="room-chat-panel__input-wrap min-w-0 flex-1">
           <Input
             :model-value="newMessage"
-            class="room-chat-panel__input h-9 border-border/60 bg-background/60 shadow-none"
+            class="room-chat-panel__input h-9 shadow-none"
+            :class="
+              theater
+                ? 'border-white/15 bg-white/5 text-white placeholder:text-white/40'
+                : 'border-border/60 bg-background/60'
+            "
             type="text"
             placeholder="Message..."
             @update:model-value="emit('update:newMessage', String($event))"
