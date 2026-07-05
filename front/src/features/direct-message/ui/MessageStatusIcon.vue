@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { PhCheck, PhClock } from '@phosphor-icons/vue'
-import type { DirectMessageStatus } from '@/shared/api/social.types'
-import { cn } from '@/shared/lib/utils'
+import { PhCheck, PhClock } from "@phosphor-icons/vue";
+import type { DirectMessageStatus } from "@/shared/api/social.types";
+import { cn } from "@/shared/lib/utils";
 
 defineProps<{
-  status?: DirectMessageStatus
-}>()
+  status?: DirectMessageStatus;
+}>();
 </script>
 
 <template>
@@ -36,7 +36,10 @@ defineProps<{
       class="size-3"
       weight="bold"
     />
-    <span v-else-if="status === 'read'" class="message-status__checks relative inline-flex w-4 items-center">
+    <span
+      v-else-if="status === 'read'"
+      class="message-status__checks relative inline-flex w-4 items-center"
+    >
       <PhCheck class="size-3 shrink-0" weight="bold" />
       <PhCheck class="absolute left-1.5 size-3 shrink-0" weight="bold" />
     </span>

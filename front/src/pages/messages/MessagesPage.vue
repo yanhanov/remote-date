@@ -262,7 +262,7 @@ onMounted(loadConversations);
 
           <div
             ref="messagesContainer"
-            class="messages-page__messages absolute inset-0 z-0 space-y-2 overflow-y-auto scroll-smooth px-[10px] pt-[calc(10px+3.5rem+8px)] pb-[calc(10px+3.5rem+8px)]"
+            class="messages-page__messages absolute inset-0 z-0 space-y-2 overflow-y-auto scroll-smooth px-[10px] pt-[calc(10px+3.5rem+8px)] pb-[calc(10px+3.5rem+8px+4.25rem+env(safe-area-inset-bottom))] md:pb-[calc(10px+3.5rem+8px)]"
           >
             <div v-if="isLoadingThread" class="flex justify-center py-16">
               <PhSpinner class="size-5 animate-spin text-muted-foreground" />
@@ -332,7 +332,7 @@ onMounted(loadConversations);
           </div>
 
           <form
-            class="messages-page__composer absolute right-[10px] bottom-[10px] left-[10px] z-20 flex items-end gap-2"
+            class="messages-page__composer absolute right-[10px] bottom-[calc(10px+4.25rem+env(safe-area-inset-bottom))] left-[10px] z-20 flex items-end gap-2 md:bottom-[10px]"
             @submit.prevent="sendMessage"
           >
             <Input
