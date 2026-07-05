@@ -1,7 +1,7 @@
 /* Sonner — minimal toast */
 
 [data-sonner-toaster] {
-  font-family: 'Google Sans', system-ui, sans-serif;
+  font-family: "Google Sans", system-ui, sans-serif;
   --width: 340px;
 }
 
@@ -10,7 +10,7 @@
   max-width: calc(100vw - 2rem);
 }
 
-[data-sonner-toast][data-styled='true'] {
+[data-sonner-toast][data-styled="true"] {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
@@ -30,7 +30,9 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 4px 20px oklch(0 0 0 / 6%);
-  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+  transition:
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
 }
 
 .dark .sonner-toast {
@@ -147,6 +149,6 @@
   }
 }
 
-[data-sonner-toast][data-expanded='false'][data-front='false'] {
+[data-sonner-toast][data-expanded="false"][data-front="false"] {
   opacity: 0.9;
 }
