@@ -155,6 +155,8 @@ impl MongoAuthRepository {
             birth_date: None,
             sex: None,
             avatar_url: None,
+            last_youtube_room_id: None,
+            last_soundcloud_room_id: None,
         };
 
         self.users.insert_one(&user).await?;
@@ -244,5 +246,40 @@ impl MongoAuthRepository {
             .delete_one(doc! { "_id": token })
             .await?;
         Ok(())
+    }
+
+    pub async fn set_last_room_id(
+        &self,
+        user_id: &str,
+        room_id: &str,
+        room_type: &str,
+    ) -> Result<()> {
+        let field = match room_type {
+            "youtube" => "lastYoutubeRoomId",
+            "soundcloud" => "lastSoundcloudRoomId",
+            _ => return Err(anyhow::anyhow!("Invalid room type")),
+        };
+
+        self.users
+            .update_one(
+                doc! { "_id": user_id },
+                doc! { "$set": { field: room_id } },
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn get_last_room_id(
+        &self,
+        user_id: &str,
+        room_type: &str,
+    ) -> Result<Option<String>> {
+        let user = self.get_user_by_id(user_id).await?;
+        Ok(match (user, room_type) {
+            (Some(u), "youtube") => u.last_youtube_room_id,
+            (Some(u), "soundcloud") => u.last_soundcloud_room_id,
+            (Some(_), _) => return Err(anyhow::anyhow!("Invalid room type")),
+            (None, _) => None,
+        })
     }
 }

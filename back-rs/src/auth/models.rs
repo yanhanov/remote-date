@@ -25,6 +25,10 @@ pub struct User {
     pub birth_date: Option<DateTime<Utc>>,
     pub sex: Option<Sex>,
     pub avatar_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_youtube_room_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_soundcloud_room_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]

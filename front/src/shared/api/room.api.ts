@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '../config/api'
 import { authAPI } from './auth.api'
-import type { VideoRoom, CreateRoomDto, VideoState } from './room.types'
+import type { VideoRoom, CreateRoomDto, VideoState, RoomType } from './room.types'
 
 class RoomAPI {
   private baseUrl = `${API_BASE_URL}/rooms`
@@ -39,6 +39,21 @@ class RoomAPI {
     if (!response.ok) {
       const error = await response.json()
       throw new Error(error.error || 'Failed to get room state')
+    }
+
+    return response.json()
+  }
+
+  async getLastRoom(type: RoomType): Promise<VideoRoom | null> {
+    const response = await authAPI.fetchWithAuth(`${this.baseUrl}/last/${type}`)
+
+    if (response.status === 404) {
+      return null
+    }
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to get last room')
     }
 
     return response.json()

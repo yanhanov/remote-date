@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { PhArrowRight, PhSpinner, PhSignIn, PhPlus } from '@phosphor-icons/vue'
+import { LastRoomCard, useLastRoom } from '@/entities/room'
 import { roomAPI } from '@/shared/api/room.api'
 import { Input } from '@/shared/ui/input'
 import { Button } from '@/shared/ui/button'
@@ -14,6 +15,8 @@ const createLoading = ref(false)
 const joinLoading = ref(false)
 const createError = ref<string | null>(null)
 const joinError = ref<string | null>(null)
+
+const { lastRoom, loading: lastRoomLoading } = useLastRoom('soundcloud')
 
 async function createRoom() {
   createLoading.value = true
@@ -80,6 +83,13 @@ async function joinRoom() {
       </header>
 
       <div class="soundcloud-page__actions space-y-2">
+        <LastRoomCard
+          v-if="lastRoom && !lastRoomLoading"
+          class="soundcloud-page__last-room"
+          :room="lastRoom"
+          room-type="soundcloud"
+        />
+
         <button
           type="button"
           class="soundcloud-page__create group flex w-full items-center gap-3 rounded-xl border border-border/60 bg-card/40 p-4 text-left transition-colors hover:border-border hover:bg-muted/30 disabled:pointer-events-none disabled:opacity-60"

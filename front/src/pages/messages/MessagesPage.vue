@@ -4,9 +4,10 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { PhPaperPlaneRight, PhSpinner } from '@phosphor-icons/vue'
 import { UserAvatar } from '@/entities/user'
-import { useDirectMessages } from '@/features/direct-message'
+import { DirectMessageContent, useDirectMessages } from '@/features/direct-message'
 import { socialAPI } from '@/shared/api/social.api'
 import type { ConversationItem, DirectMessageItem } from '@/shared/api/social.types'
+import { parseRoomInvite } from '@/shared/lib/room-invite-message'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { cn } from '@/shared/lib/utils'
@@ -94,6 +95,10 @@ function formatTime(value?: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value))
+}
+
+function isInviteMessage(text: string) {
+  return parseRoomInvite(text) !== null
 }
 
 watch(
@@ -211,19 +216,32 @@ onMounted(loadConversations)
                 :class="message.isOwn ? 'justify-end' : 'justify-start'"
               >
                 <div
-                  class="max-w-[75%] rounded-2xl px-3 py-2 text-sm"
+                  class="messages-page__message-body"
                   :class="
                     cn(
-                      message.isOwn
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-foreground',
+                      isInviteMessage(message.text)
+                        ? 'w-full max-w-[min(100%,20rem)]'
+                        : 'max-w-[75%] rounded-2xl px-3 py-2 text-sm',
+                      !isInviteMessage(message.text) &&
+                        (message.isOwn
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-foreground'),
                     )
                   "
                 >
-                  <p class="whitespace-pre-wrap break-words">{{ message.text }}</p>
+                  <DirectMessageContent
+                    :text="message.text"
+                    :is-own="message.isOwn"
+                    :created-at="message.createdAt"
+                  />
                   <p
-                    class="mt-1 text-[10px] opacity-70"
-                    :class="message.isOwn ? 'text-primary-foreground/80' : 'text-muted-foreground'"
+                    v-if="!isInviteMessage(message.text)"
+                    class="mt-1.5 text-[10px] opacity-70"
+                    :class="
+                      message.isOwn
+                        ? 'text-primary-foreground/80'
+                        : 'text-muted-foreground'
+                    "
                   >
                     {{ formatTime(message.createdAt) }}
                   </p>

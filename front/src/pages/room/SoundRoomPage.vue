@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import { toast } from 'vue-sonner'
-import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
-import { useRoom } from '@/entities/room'
+import { useRoom, RoomNotFound } from '@/entities/room'
 import { useChat, RoomChatPanel } from '@/features/room-chat'
 import {
   SoundPlayerBar,
@@ -14,7 +13,6 @@ import {
 } from '@/features/room-player'
 
 const route = useRoute()
-const router = useRouter()
 
 const roomId = route.params.id as string
 
@@ -94,19 +92,13 @@ onBeforeRouteLeave(() => {
       </div>
     </div>
 
-    <div
+    <RoomNotFound
       v-else-if="error"
-      class="sound-room-page__error flex flex-col items-center justify-center gap-4 px-6 py-16 text-center"
-    >
-      <p class="sound-room-page__error-text text-sm text-destructive">{{ error }}</p>
-      <Button
-        class="sound-room-page__error-action h-9"
-        variant="secondary"
-        @click="router.push('/soundcloud')"
-      >
-        Back to SoundCloud
-      </Button>
-    </div>
+      class="sound-room-page__error"
+      :room-id="roomId"
+      room-type="soundcloud"
+      :error="error"
+    />
 
     <template v-else-if="room">
       <div

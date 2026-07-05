@@ -1,1 +1,4 @@
 export { useDirectMessages } from './model/use-direct-messages'
+export { default as MessageText } from './ui/MessageText.vue'
+export { default as DirectMessageContent } from './ui/DirectMessageContent.vue'
+export { default as RoomInviteMessage } from './ui/RoomInviteMessage.vue'

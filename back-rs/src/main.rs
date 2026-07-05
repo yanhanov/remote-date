@@ -44,6 +44,25 @@ async fn main() -> anyhow::Result<()> {
         chat_store: std::sync::Arc::new(RwLock::new(chat::service::ChatStore::new())),
     };
 
+    {
+        let room_store = app_state.room_store.clone();
+        let chat_store = app_state.chat_store.clone();
+        tokio::spawn(async move {
+            let interval = std::time::Duration::from_secs(60 * 15);
+            loop {
+                tokio::time::sleep(interval).await;
+                let removed = {
+                    let mut rooms = room_store.write().await;
+                    let mut chats = chat_store.write().await;
+                    rooms::service::RoomService::cleanup_stale_rooms(&mut rooms, &mut chats)
+                };
+                if removed > 0 {
+                    tracing::info!("Removed {removed} stale empty room(s)");
+                }
+            }
+        });
+    }
+
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)

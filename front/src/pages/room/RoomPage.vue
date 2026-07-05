@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { PhX } from '@phosphor-icons/vue'
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
-import { useRoom } from '@/entities/room'
+import { useRoom, RoomNotFound } from '@/entities/room'
 import { useChat, RoomChatPanel, RoomCompactChat } from '@/features/room-chat'
 import {
   YoutubePlayerCard,
@@ -18,7 +18,6 @@ import type { YoutubeVideo } from '@/shared/api/youtube.api'
 import { youtubeWatchUrl } from '@/features/room-player/model/youtube.utils'
 
 const route = useRoute()
-const router = useRouter()
 
 const roomId = route.params.id as string
 
@@ -80,15 +79,6 @@ onBeforeRouteLeave(() => {
   teardownPlayer()
 })
 
-async function copyLink() {
-  try {
-    await navigator.clipboard.writeText(currentUrl.value)
-    toast.success('Link copied to clipboard')
-  } catch {
-    toast.error('Could not copy link')
-  }
-}
-
 function handleVideoSelect(video: YoutubeVideo) {
   changeVideo({
     videoId: video.videoId,
@@ -112,15 +102,13 @@ function handleVideoSelect(video: YoutubeVideo) {
       <Skeleton class="room-page__skeleton aspect-video w-full rounded-lg" />
     </div>
 
-    <div
+    <RoomNotFound
       v-else-if="error"
-      class="room-page__error flex flex-col items-center justify-center gap-4 py-16 text-center"
-    >
-      <p class="room-page__error-text text-sm text-destructive">{{ error }}</p>
-      <Button class="room-page__error-action h-9" variant="secondary" @click="router.push('/youtube')">
-        Back to YouTube
-      </Button>
-    </div>
+      class="room-page__error"
+      :room-id="roomId"
+      room-type="youtube"
+      :error="error"
+    />
 
     <div
       v-else-if="room"
@@ -196,7 +184,7 @@ function handleVideoSelect(video: YoutubeVideo) {
             v-show="!isTheater"
             class="room-page__share shrink-0"
             :url="currentUrl"
-            @copy="copyLink"
+            room-type="youtube"
           />
         </div>
 

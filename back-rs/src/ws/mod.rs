@@ -171,7 +171,34 @@ async fn sync_room_participants(app_state: &AppContext, room_id: &str) -> u32 {
     let count = room_connection_count(room_id).await;
     let mut store = app_state.room_store.write().await;
     RoomService::set_participants(&mut store, room_id, count);
+    if count == 0 {
+        RoomService::mark_empty(&mut store, room_id);
+    } else {
+        RoomService::mark_active(&mut store, room_id);
+    }
     count
+}
+
+async fn conn_user_id(conn_id: Uuid) -> Option<String> {
+    let ws_state = WS_STATE.read().await;
+    ws_state.conn_users.get(&conn_id).cloned()
+}
+
+async fn remember_user_room(app_state: &AppContext, user_id: &str, room_id: &str) {
+    let room_type = {
+        let store = app_state.room_store.read().await;
+        RoomService::get_room(&store, room_id).map(|room| match room.room_type {
+            crate::rooms::models::RoomType::Youtube => "youtube",
+            crate::rooms::models::RoomType::Soundcloud => "soundcloud",
+        })
+    };
+
+    if let Some(room_type) = room_type {
+        let _ = app_state
+            .auth_repo
+            .set_last_room_id(user_id, room_id, room_type)
+            .await;
+    }
 }
 
 async fn broadcast_participants(room_id: &str, participants: u32, event: &str) {
@@ -232,6 +259,10 @@ async fn handle_event(
             }
 
             broadcast_participants(&room_id, participants, "room:user_joined").await;
+
+            if let Some(user_id) = conn_user_id(conn_id).await {
+                remember_user_room(app_state, &user_id, &room_id).await;
+            }
         }
         IncomingEvent::RoomLeave { room_id } => {
             let mut ws_state = WS_STATE.write().await;
