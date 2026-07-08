@@ -1,0 +1,127 @@
+import { API_BASE_URL } from '@/shared/config/api';
+import { authAPI } from './auth.api';
+
+interface SoundCloudTrackRaw {
+  id: number;
+  title: string;
+  username?: string;
+  artwork_url?: string | null;
+  permalink_url?: string;
+  duration_ms?: number;
+  stream_url?: string | null;
+}
+
+interface SoundCloudPlaylistRaw {
+  id: number;
+  title: string;
+  username?: string;
+  artwork_url?: string | null;
+  permalink_url?: string;
+  track_count?: number;
+  kind: 'playlist';
+}
+
+export interface SoundCloudTrack {
+  id: number;
+  title: string;
+  username?: string;
+  artworkUrl?: string | null;
+  permalinkUrl: string;
+  durationMs: number;
+  streamUrl?: string | null;
+}
+
+export interface SoundCloudPlaylist {
+  id: number;
+  title: string;
+  username?: string;
+  artworkUrl?: string | null;
+  permalinkUrl: string;
+  trackCount?: number;
+  kind: 'playlist';
+}
+
+export type SoundCloudSearchItem = SoundCloudTrack | SoundCloudPlaylist;
+
+class SoundCloudAPI {
+  private baseUrl = `${API_BASE_URL}/soundcloud`;
+
+  private mapTrack(raw: SoundCloudTrackRaw): SoundCloudTrack {
+    return {
+      id: raw.id,
+      title: raw.title,
+      username: raw.username,
+      artworkUrl: raw.artwork_url,
+      permalinkUrl: raw.permalink_url ?? '',
+      durationMs: raw.duration_ms ?? 0,
+      streamUrl: raw.stream_url,
+    };
+  }
+
+  private mapPlaylist(raw: SoundCloudPlaylistRaw): SoundCloudPlaylist {
+    return {
+      id: raw.id,
+      title: raw.title,
+      username: raw.username,
+      artworkUrl: raw.artwork_url,
+      permalinkUrl: raw.permalink_url ?? '',
+      trackCount: raw.track_count,
+      kind: 'playlist',
+    };
+  }
+
+  async searchTracks(
+    query: string,
+    limit = 5,
+    filter: 'tracks' | 'playlists' = 'tracks',
+  ): Promise<SoundCloudSearchItem[]> {
+    const params = new URLSearchParams({
+      q: query,
+      limit: String(limit),
+      filter,
+    });
+    const res = await authAPI.fetchWithAuth(`${this.baseUrl}/search?${params}`);
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to search');
+    }
+
+    const data = (await res.json()) as {
+      items: (SoundCloudTrackRaw | SoundCloudPlaylistRaw)[];
+      kind?: 'tracks' | 'playlists';
+    };
+
+    if (data.kind === 'playlists') {
+      return data.items.map((item) => this.mapPlaylist(item as SoundCloudPlaylistRaw));
+    }
+
+    return data.items.map((item) => this.mapTrack(item as SoundCloudTrackRaw));
+  }
+
+  async getTrack(trackId: number): Promise<SoundCloudTrack> {
+    const res = await authAPI.fetchWithAuth(`${this.baseUrl}/tracks/${trackId}`);
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to fetch track');
+    }
+
+    const data = (await res.json()) as SoundCloudTrackRaw;
+    return this.mapTrack(data);
+  }
+
+  async getPlaylistTracks(playlistId: string | number): Promise<SoundCloudTrack[]> {
+    const res = await authAPI.fetchWithAuth(`${this.baseUrl}/playlist/${playlistId}`);
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to fetch playlist tracks');
+    }
+
+    const data = (await res.json()) as { items: SoundCloudTrackRaw[] };
+    return data.items.map((item) => this.mapTrack(item));
+  }
+}
+
+export const soundCloudAPI = new SoundCloudAPI();

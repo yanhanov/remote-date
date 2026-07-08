@@ -1,4 +1,4 @@
-.PHONY: help dev dev-api dev-front dev-mongo dev-mongo-down install check build
+.PHONY: help dev dev-api dev-front dev-mobile dev-mongo dev-mongo-down install check build build-android
 
 ifneq (,$(wildcard .env))
   include .env
@@ -10,6 +10,8 @@ PORT ?= 5001
 JWT_SECRET ?= super-secret-dev
 JWT_EXPIRES_IN ?= 7d
 MONGO_URL ?= mongodb://localhost:27017/remote
+EXPO_PUBLIC_API_URL ?= http://localhost:$(PORT)/api
+EXPO_PUBLIC_SOCKET_URL ?= ws://localhost:$(PORT)/ws
 
 help: ## Показать команды
 	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -41,10 +43,16 @@ dev-api: dev-mongo ## Запустить Rust API (порт $(PORT))
 dev-front: ## Запустить Vite dev-сервер (порт 5173)
 	cd front && VITE_API_PORT=$(PORT) npm run dev
 
+dev-mobile: ## Запустить Expo mobile app
+	cd rn && EXPO_PUBLIC_API_URL=$(EXPO_PUBLIC_API_URL) EXPO_PUBLIC_SOCKET_URL=$(EXPO_PUBLIC_SOCKET_URL) npm start
+
 check: ## Проверить TypeScript на фронте
 	cd front && npm run check
 
 build: ## Собрать фронтенд
 	cd front && npm run build
+
+build-android: ## Собрать Android APK (release)
+	cd rn && EXPO_PUBLIC_API_URL=$(EXPO_PUBLIC_API_URL) EXPO_PUBLIC_SOCKET_URL=$(EXPO_PUBLIC_SOCKET_URL) npm run build:android
 
 .DEFAULT_GOAL := help
