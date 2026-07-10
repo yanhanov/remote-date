@@ -29,6 +29,8 @@ pub struct User {
     pub last_youtube_room_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_soundcloud_room_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_belet_room_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]

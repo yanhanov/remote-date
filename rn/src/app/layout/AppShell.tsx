@@ -7,11 +7,14 @@ import { ThemeToggle } from '@/shared/ui/ThemeToggle';
 import { useTheme } from '@/shared/theme/ThemeProvider';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { useResponsive } from '@/shared/lib/use-responsive';
+import { useAppNav } from '@/widgets/app-nav/use-app-nav';
 
 export function AppShell({ children }: PropsWithChildren) {
   const { colors } = useTheme();
   const { isWide } = useResponsive();
+  const { routeName } = useAppNav();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const hideMobileNav = routeName === 'BeletRoom';
 
   return (
     <View style={styles.root}>
@@ -27,7 +30,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
         <View style={styles.content}>{children}</View>
 
-        {!isWide ? <MobileNav /> : null}
+        {!isWide && !hideMobileNav ? <MobileNav /> : null}
       </View>
     </View>
   );

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum RoomType {
     Youtube,
     Soundcloud,
+    Belet,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,6 +37,8 @@ pub struct VideoRoom {
     pub soundcloud_queue: Option<Vec<SoundcloudQueueItem>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub soundcloud_queue_index: Option<u32>,
+    pub belet_url: Option<String>,
+    pub belet_title: Option<String>,
     pub created_at: DateTime<Utc>,
     pub current_time: f64,
     pub is_playing: bool,
@@ -55,6 +58,7 @@ pub struct VideoState {
 pub struct CreateRoomDto {
     pub youtube_url: Option<String>,
     pub soundcloud_url: Option<String>,
+    pub belet_url: Option<String>,
     #[serde(rename = "type")]
     pub room_type: Option<RoomType>,
 }

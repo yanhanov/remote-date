@@ -30,6 +30,7 @@ async fn create_room(
             let room_type = match room.room_type {
                 crate::rooms::models::RoomType::Youtube => "youtube",
                 crate::rooms::models::RoomType::Soundcloud => "soundcloud",
+                crate::rooms::models::RoomType::Belet => "belet",
             };
             let _ = state
                 .auth_repo
@@ -53,7 +54,7 @@ async fn get_last_room(
     user: AuthUser,
     Path(room_type): Path<String>,
 ) -> (axum::http::StatusCode, Json<serde_json::Value>) {
-    if room_type != "youtube" && room_type != "soundcloud" {
+    if room_type != "youtube" && room_type != "soundcloud" && room_type != "belet" {
         return (
             axum::http::StatusCode::BAD_REQUEST,
             Json(serde_json::json!({ "error": "Invalid room type" })),
@@ -87,6 +88,7 @@ async fn get_last_room(
             let matches_type = match room.room_type {
                 crate::rooms::models::RoomType::Youtube => room_type == "youtube",
                 crate::rooms::models::RoomType::Soundcloud => room_type == "soundcloud",
+                crate::rooms::models::RoomType::Belet => room_type == "belet",
             };
 
             if !matches_type {

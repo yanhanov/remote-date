@@ -59,11 +59,13 @@ impl RoomService {
             || matches!(dto.room_type, Some(RoomType::Soundcloud))
         {
             (RoomType::Soundcloud, None)
+        } else if dto.belet_url.is_some() || matches!(dto.room_type, Some(RoomType::Belet)) {
+            (RoomType::Belet, None)
         } else if matches!(dto.room_type, Some(RoomType::Youtube)) {
             (RoomType::Youtube, None)
         } else {
             return Err(anyhow!(
-                "Either youtubeUrl or soundcloudUrl or type is required"
+                "Either youtubeUrl, soundcloudUrl, beletUrl or type is required"
             ));
         };
 
@@ -79,6 +81,8 @@ impl RoomService {
             soundcloud_artwork_url: None,
             soundcloud_queue: None,
             soundcloud_queue_index: None,
+            belet_url: dto.belet_url.clone(),
+            belet_title: None,
             created_at: Utc::now(),
             current_time: 0.0,
             is_playing: false,
@@ -226,6 +230,27 @@ impl RoomService {
             room.youtube_url = youtube_url.or_else(|| {
                 Some(format!("https://www.youtube.com/watch?v={video_id}"))
             });
+            room.current_time = 0.0;
+            room.is_playing = false;
+        }
+
+        if let Some(state) = store.states.get_mut(room_id) {
+            state.current_time = 0.0;
+            state.is_playing = false;
+            state.timestamp = chrono::Utc::now().timestamp_millis();
+        }
+    }
+
+    pub fn update_belet_metadata(
+        store: &mut RoomStore,
+        room_id: &str,
+        url: &str,
+        title: Option<String>,
+    ) {
+        if let Some(entry) = store.rooms.get_mut(room_id) {
+            let room = &mut entry.room;
+            room.belet_url = Some(url.to_string());
+            room.belet_title = title;
             room.current_time = 0.0;
             room.is_playing = false;
         }

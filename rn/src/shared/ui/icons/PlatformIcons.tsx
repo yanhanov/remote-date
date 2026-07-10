@@ -84,3 +84,14 @@ export function SoundCloudIcon({ size = 28, style }: IconProps) {
     </Svg>
   );
 }
+
+export function BeletIcon({ size = 28, style }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" style={style}>
+      <Path
+        fill="#e4002b"
+        d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4v8h3.2l4.8-4.8V16h3V8h-3.2L9 12.8V8H6z"
+      />
+    </Svg>
+  );
+}

@@ -33,21 +33,7 @@ const { isTheater, exitTheater, toggleTheater } = useRoomTheater()
 
 const hasVideo = computed(() => Boolean(room.value?.youtubeVideoId))
 
-watch(isTheater, (active) => {
-  // #region agent log
-  fetch('http://127.0.0.1:7447/ingest/70cb9cea-c092-4f94-92a0-53aa04217325', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '86925f' },
-    body: JSON.stringify({
-      sessionId: '86925f',
-      location: 'RoomPage.vue:watch(isTheater)',
-      message: 'theater toggled',
-      data: { active },
-      timestamp: Date.now(),
-      hypothesisId: 'E',
-    }),
-  }).catch(() => {})
-  // #endregion
+watch(isTheater, () => {
   void syncLayout()
 })
 

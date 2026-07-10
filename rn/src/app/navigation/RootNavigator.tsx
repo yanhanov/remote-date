@@ -6,6 +6,7 @@ import { useTheme } from '@/shared/theme/ThemeProvider';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
 import { AuthNavigator } from './AuthNavigator';
 import { AppNavigator } from './AppNavigator';
+import { linking } from './linking';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -18,10 +19,6 @@ export function RootNavigator() {
   useEffect(() => {
     void initialize().finally(() => setBootstrapping(false));
   }, [initialize]);
-
-  if (bootstrapping || !isInitialized) {
-    return <LoadingSpinner />;
-  }
 
   const navTheme = isDark
     ? {
@@ -48,14 +45,18 @@ export function RootNavigator() {
       };
 
   return (
-    <NavigationContainer theme={navTheme}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {isAuthenticated ? (
-          <Stack.Screen name="AppStack" component={AppNavigator} />
-        ) : (
-          <Stack.Screen name="AuthStack" component={AuthNavigator} />
-        )}
-      </Stack.Navigator>
+    <NavigationContainer linking={linking} theme={navTheme}>
+      {bootstrapping || !isInitialized ? (
+        <LoadingSpinner />
+      ) : (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {isAuthenticated ? (
+            <Stack.Screen name="AppStack" component={AppNavigator} />
+          ) : (
+            <Stack.Screen name="AuthStack" component={AuthNavigator} />
+          )}
+        </Stack.Navigator>
+      )}
     </NavigationContainer>
   );
 }

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { ArrowUpRight } from 'phosphor-react-native';
 import type { AppScreenProps } from '@/app/navigation/types';
-import { YouTubeIcon, SoundCloudIcon } from '@/shared/ui/icons/PlatformIcons';
+import { YouTubeIcon, SoundCloudIcon, BeletIcon } from '@/shared/ui/icons/PlatformIcons';
 import { useTheme } from '@/shared/theme/ThemeProvider';
 import { createCommonStyles } from '@/shared/theme/styles';
 import type { ThemeColors } from '@/shared/theme/colors';
@@ -29,6 +29,14 @@ export function HomeScreen({ navigation }: AppScreenProps<'Home'>) {
         route: 'SoundcloudHub' as const,
         color: colors.soundcloud,
         Icon: SoundCloudIcon,
+      },
+      {
+        title: 'Belet',
+        tagline: 'Movies & series',
+        description: 'Watch Belet together with synced playback.',
+        route: 'BeletHub' as const,
+        color: colors.belet,
+        Icon: BeletIcon,
       },
     ],
     [colors],

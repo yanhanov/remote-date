@@ -50,6 +50,13 @@ function buildBreadcrumbs(routeName: string): BreadcrumbItem[] {
       crumbs.push({ label: 'SoundCloud', route: 'SoundcloudHub' });
       crumbs.push({ label: 'Room' });
       break;
+    case 'BeletHub':
+      crumbs.push({ label: 'Belet' });
+      break;
+    case 'BeletRoom':
+      crumbs.push({ label: 'Belet', route: 'BeletHub' });
+      crumbs.push({ label: 'Room' });
+      break;
     case 'Profile':
       crumbs.push({ label: 'Profile' });
       break;

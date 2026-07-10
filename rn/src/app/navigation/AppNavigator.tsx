@@ -7,8 +7,10 @@ import { MessagesScreen } from '@/pages/messages/MessagesScreen';
 import { ProfileScreen } from '@/pages/profile/ProfileScreen';
 import { YoutubeHubScreen } from '@/pages/youtube/YoutubeHubScreen';
 import { SoundcloudHubScreen } from '@/pages/soundcloud/SoundcloudHubScreen';
+import { BeletHubScreen } from '@/pages/belet/BeletHubScreen';
 import { RoomScreen } from '@/pages/room/RoomScreen';
 import { SoundRoomScreen } from '@/pages/room/SoundRoomScreen';
+import { BeletRoomScreen } from '@/pages/room/BeletRoomScreen';
 import { UserProfileScreen } from '@/pages/user/UserProfileScreen';
 import { MessagesThreadScreen } from '@/pages/messages/MessagesThreadScreen';
 import { useTheme } from '@/shared/theme/ThemeProvider';
@@ -40,13 +42,19 @@ export function AppNavigator() {
           component={SoundcloudHubScreen}
           options={{ title: 'SoundCloud' }}
         />
+        <Stack.Screen name="BeletHub" component={BeletHubScreen} options={{ title: 'Belet' }} />
         <Stack.Screen name="Room" component={RoomScreen} options={{ title: 'Watch party' }} />
         <Stack.Screen name="SoundRoom" component={SoundRoomScreen} options={{ title: 'SoundCloud Room' }} />
+        <Stack.Screen
+          name="BeletRoom"
+          component={BeletRoomScreen}
+          options={{ title: 'Belet Room', headerShown: false }}
+        />
         <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Profile' }} />
         <Stack.Screen
           name="MessagesThread"
           component={MessagesThreadScreen}
-          options={{ title: 'Chat' }}
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </AppShell>

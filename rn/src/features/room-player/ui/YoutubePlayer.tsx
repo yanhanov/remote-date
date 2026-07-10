@@ -4,6 +4,8 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { socketService } from '@/shared/api/socket.service';
 import type { VideoRoom, VideoState } from '@/shared/api/room.types';
 
+export { changeRoomVideo } from '@/features/room-player/lib/youtube-player-api';
+
 const WebViewAny = WebView as unknown as React.ComponentType<Record<string, unknown>>;
 
 function buildPlayerHtml(videoId: string) {
@@ -205,31 +207,12 @@ export function YoutubePlayer({ roomId, room, loadedAt }: YoutubePlayerProps) {
   );
 }
 
-export function changeRoomVideo(
-  roomId: string,
-  video: {
-    videoId: string;
-    youtubeUrl?: string;
-    title?: string;
-    channelTitle?: string;
-    thumbnailUrl?: string;
-  },
-) {
-  socketService.emit('video:change', {
-    roomId,
-    videoId: video.videoId,
-    youtubeUrl: video.youtubeUrl,
-    title: video.title,
-    channelTitle: video.channelTitle,
-    thumbnailUrl: video.thumbnailUrl,
-  });
-}
-
 const styles = StyleSheet.create({
   container: {
-    aspectRatio: 16 / 9,
+    flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#000',
-    borderRadius: 12,
     overflow: 'hidden',
   },
   webview: {

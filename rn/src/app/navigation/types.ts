@@ -13,8 +13,10 @@ export type AppStackParamList = {
   About: undefined;
   YoutubeHub: undefined;
   SoundcloudHub: undefined;
+  BeletHub: undefined;
   Room: { id: string };
   SoundRoom: { id: string };
+  BeletRoom: { id: string };
   UserProfile: { id: string };
   MessagesThread: { userId: string };
 };

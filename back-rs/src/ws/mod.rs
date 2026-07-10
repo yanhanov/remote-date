@@ -72,6 +72,12 @@ enum IncomingEvent {
         thumbnail_url: Option<String>,
     },
     #[serde(rename_all = "camelCase")]
+    BeletChange {
+        room_id: String,
+        belet_url: String,
+        title: Option<String>,
+    },
+    #[serde(rename_all = "camelCase")]
     ChatSend {
         room: String,
         text: String,
@@ -194,6 +200,7 @@ async fn remember_user_room(app_state: &AppContext, user_id: &str, room_id: &str
         RoomService::get_room(&store, room_id).map(|room| match room.room_type {
             crate::rooms::models::RoomType::Youtube => "youtube",
             crate::rooms::models::RoomType::Soundcloud => "soundcloud",
+            crate::rooms::models::RoomType::Belet => "belet",
         })
     };
 
@@ -559,6 +566,62 @@ async fn handle_event(
                     "title": title,
                     "channelTitle": channel_title,
                     "thumbnailUrl": thumbnail_url
+                }),
+            )
+            .await;
+        }
+        IncomingEvent::BeletChange {
+            room_id,
+            belet_url,
+            title,
+        } => {
+            let mut rooms = app_state.room_store.write().await;
+            let room = match RoomService::get_room(&rooms, &room_id) {
+                Some(r) => r,
+                None => {
+                    send_room_not_found(conn_id).await;
+                    return;
+                }
+            };
+
+            if !matches!(room.room_type, crate::rooms::models::RoomType::Belet) {
+                send_to_conn(
+                    conn_id,
+                    serde_json::json!({
+                        "event": "room:error",
+                        "message": "Not a Belet room"
+                    }),
+                )
+                .await;
+                return;
+            }
+
+            if belet_url.is_empty() {
+                send_to_conn(
+                    conn_id,
+                    serde_json::json!({
+                        "event": "room:error",
+                        "message": "beletUrl is required"
+                    }),
+                )
+                .await;
+                return;
+            }
+
+            RoomService::update_belet_metadata(
+                &mut rooms,
+                &room_id,
+                &belet_url,
+                title.clone(),
+            );
+
+            broadcast_to_room_except(
+                &room_id,
+                conn_id,
+                serde_json::json!({
+                    "event": "belet:change",
+                    "beletUrl": belet_url,
+                    "title": title
                 }),
             )
             .await;

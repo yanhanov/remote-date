@@ -1,19 +1,24 @@
-import { useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
+import { useEffect, useState } from 'react';
 import type { AppScreenProps } from '@/app/navigation/types';
 import { useRoom } from '@/entities/room/model/useRoom';
+import { useRoomScreenLifecycle } from '@/entities/room/model/useRoomScreenLifecycle';
 import { RoomNotFound } from '@/entities/room/ui/RoomNotFound';
+import {
+  RoomInviteButton,
+  RoomPanelCard,
+  RoomScreenLayout,
+} from '@/entities/room/ui/RoomScreenLayout';
+import { RoomPlayerCard } from '@/entities/room/ui/RoomPlayerCard';
 import { useChat } from '@/features/room-chat/model/useChat';
 import { RoomChatPanel } from '@/features/room-chat/ui/RoomChatPanel';
 import { YoutubePlayer, changeRoomVideo } from '@/features/room-player/ui/YoutubePlayer';
 import { YoutubeVideoSearch } from '@/features/room-player/ui/YoutubeVideoSearch';
+import { RoomInviteModal } from '@/features/room-share/ui/RoomInviteModal';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
-import { useTheme } from '@/shared/theme/ThemeProvider';
-import type { ThemeColors } from '@/shared/theme/colors';
+import { youtubeWatchUrl } from '@/shared/lib/youtube-url';
 
 export function RoomScreen({ route, navigation }: AppScreenProps<'Room'>) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const roomId = route.params.id;
   const {
@@ -32,20 +37,7 @@ export function RoomScreen({ route, navigation }: AppScreenProps<'Room'>) {
   const { messages, newMessage, setNewMessage, send, sendFile, currentUserName } =
     useChat(roomId);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        await load();
-        join();
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Failed to load room';
-        setError(message);
-        Alert.alert('Error', message);
-      }
-    })();
-
-    return () => leave();
-  }, [roomId]);
+  useRoomScreenLifecycle(roomId, navigation, { load, join, leave, setError });
 
   useEffect(() => {
     if (room && room.type !== 'youtube') {
@@ -66,87 +58,70 @@ export function RoomScreen({ route, navigation }: AppScreenProps<'Room'>) {
     );
   }
 
+  const hasVideo = Boolean(room.youtubeVideoId);
+
+  function handleVideoSelect(video: {
+    videoId: string;
+    title?: string;
+    channelTitle?: string;
+    thumbnailUrl?: string | null;
+  }) {
+    changeRoomVideo(roomId, {
+      videoId: video.videoId,
+      youtubeUrl: youtubeWatchUrl(video.videoId),
+      title: video.title,
+      channelTitle: video.channelTitle,
+      thumbnailUrl: video.thumbnailUrl ?? undefined,
+    });
+    setRoom({
+      ...room!,
+      youtubeVideoId: video.videoId,
+      youtubeUrl: youtubeWatchUrl(video.videoId),
+    });
+  }
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.meta}>
-        <Text style={styles.metaText}>
-          Room {room.id.slice(0, 8)} · {participants} online
-        </Text>
-      </View>
+    <RoomScreenLayout
+      main={
+        <>
+          <RoomPanelCard
+            title="Choose a video"
+            description="Everyone in the room watches the same video."
+          >
+            <YoutubeVideoSearch onSelect={handleVideoSelect} />
+          </RoomPanelCard>
 
-      {room.youtubeVideoId ? (
-        <YoutubePlayer roomId={roomId} room={room} loadedAt={loadedAt} />
-      ) : (
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>Search for a video to start watching.</Text>
-        </View>
-      )}
-
-      <YoutubeVideoSearch
-        onSelect={(video) => {
-          changeRoomVideo(roomId, {
-            videoId: video.videoId,
-            youtubeUrl: `https://www.youtube.com/watch?v=${video.videoId}`,
-            title: video.title,
-            channelTitle: video.channelTitle,
-            thumbnailUrl: video.thumbnailUrl ?? undefined,
-          });
-          setRoom({
-            ...room,
-            youtubeVideoId: video.videoId,
-            youtubeUrl: `https://www.youtube.com/watch?v=${video.videoId}`,
-          });
-        }}
-      />
-
-      <View style={styles.chat}>
+          <RoomPlayerCard
+            roomId={room.id}
+            participants={participants}
+            hasContent={hasVideo}
+            placeholder="Search for a video or paste a link to start watching."
+            headerAction={<RoomInviteButton onPress={() => setInviteOpen(true)} />}
+          >
+            {hasVideo ? (
+              <YoutubePlayer roomId={roomId} room={room} loadedAt={loadedAt} />
+            ) : null}
+          </RoomPlayerCard>
+        </>
+      }
+      chat={
         <RoomChatPanel
           messages={messages}
           newMessage={newMessage}
           onChangeMessage={setNewMessage}
           onSend={send}
-          onSendImage={() => void sendFile('image')}
-          onSendAudio={() => void sendFile('audio')}
+          onSendFile={(mode) => void sendFile(mode)}
           currentUserName={currentUserName}
         />
-      </View>
-    </ScrollView>
+      }
+      footer={
+        <RoomInviteModal
+          visible={inviteOpen}
+          roomId={roomId}
+          roomType="youtube"
+          onClose={() => setInviteOpen(false)}
+        />
+      }
+    />
   );
-}
-
-function createStyles(colors: ThemeColors) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    content: {
-      padding: 16,
-      gap: 16,
-      paddingBottom: 40,
-    },
-    meta: {
-      paddingBottom: 4,
-    },
-    metaText: {
-      fontSize: 12,
-      color: colors.muted,
-    },
-    placeholder: {
-      aspectRatio: 16 / 9,
-      backgroundColor: '#000',
-      borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 20,
-    },
-    placeholderText: {
-      color: '#ffffff99',
-      fontSize: 14,
-      textAlign: 'center',
-    },
-    chat: {
-      minHeight: 320,
-    },
-  });
 }

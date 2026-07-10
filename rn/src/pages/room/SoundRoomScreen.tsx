@@ -1,17 +1,23 @@
-import React, { useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
-import { WebView } from 'react-native-webview';
-
-const WebViewAny = WebView as unknown as React.ComponentType<Record<string, unknown>>;
+import { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import type { AppScreenProps } from '@/app/navigation/types';
 import { useRoom } from '@/entities/room/model/useRoom';
+import { useRoomScreenLifecycle } from '@/entities/room/model/useRoomScreenLifecycle';
 import { RoomNotFound } from '@/entities/room/ui/RoomNotFound';
+import {
+  RoomInviteButton,
+  RoomPanelCard,
+  RoomScreenLayout,
+} from '@/entities/room/ui/RoomScreenLayout';
+import { RoomPlayerCard } from '@/entities/room/ui/RoomPlayerCard';
 import { useChat } from '@/features/room-chat/model/useChat';
 import { RoomChatPanel } from '@/features/room-chat/ui/RoomChatPanel';
+import { SoundcloudAudioPlayer } from '@/features/room-player/ui/SoundcloudAudioPlayer';
 import {
   useSoundcloudPlayer,
   SoundcloudTrackSearch,
 } from '@/features/room-player/ui/SoundcloudPlayer';
+import { RoomInviteModal } from '@/features/room-share/ui/RoomInviteModal';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
 import { useTheme } from '@/shared/theme/ThemeProvider';
 import type { ThemeColors } from '@/shared/theme/colors';
@@ -19,6 +25,7 @@ import type { ThemeColors } from '@/shared/theme/colors';
 export function SoundRoomScreen({ route, navigation }: AppScreenProps<'SoundRoom'>) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const roomId = route.params.id;
   const {
@@ -38,20 +45,7 @@ export function SoundRoomScreen({ route, navigation }: AppScreenProps<'SoundRoom
 
   const player = useSoundcloudPlayer(roomId, room, loadedAt);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        await load();
-        join();
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Failed to load room';
-        setError(message);
-        Alert.alert('Error', message);
-      }
-    })();
-
-    return () => leave();
-  }, [roomId]);
+  useRoomScreenLifecycle(roomId, navigation, { load, join, leave, setError });
 
   useEffect(() => {
     if (room && room.type !== 'soundcloud') {
@@ -72,98 +66,100 @@ export function SoundRoomScreen({ route, navigation }: AppScreenProps<'SoundRoom
     );
   }
 
+  const hasTrack = Boolean(player.currentTrackUrl);
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <SoundcloudTrackSearch
-        roomId={room.id}
-        participants={participants}
-        isSelectingTrack={player.isSelectingTrack}
-        onSelectTrack={player.selectTrack}
-      />
+    <RoomScreenLayout
+      main={
+        <>
+          <RoomPanelCard
+            title="Choose a track"
+            description="Everyone in the room listens to the same track."
+          >
+            <SoundcloudTrackSearch
+              isSelectingTrack={player.isSelectingTrack}
+              onSelectTrack={player.selectTrack}
+            />
+          </RoomPanelCard>
 
-      <View style={styles.nowPlaying}>
-        <Text style={styles.nowPlayingLabel}>Now playing</Text>
-        <Text style={styles.trackTitle}>{player.currentTrackTitle ?? 'No track selected'}</Text>
-        {player.currentTrackArtist ? (
-          <Text style={styles.trackArtist}>{player.currentTrackArtist}</Text>
-        ) : null}
-      </View>
-
-      {player.currentTrackUrl ? (
-        <View style={styles.player}>
-          <WebViewAny
-            ref={player.webRef}
-            source={{ html: player.buildAudioHtml(player.currentTrackUrl) }}
-            style={styles.webview}
-            javaScriptEnabled
-            allowsInlineMediaPlayback
-            mediaPlaybackRequiresUserAction={false}
-          />
-        </View>
-      ) : null}
-
-      <View style={styles.chat}>
+          <RoomPlayerCard
+            roomId={room.id}
+            participants={participants}
+            hasContent={hasTrack}
+            placeholder="Search for a track to start listening."
+            headerAction={<RoomInviteButton onPress={() => setInviteOpen(true)} />}
+          >
+            {hasTrack ? (
+              <View style={styles.playerWrap}>
+                <View style={styles.nowPlaying}>
+                  <Text style={styles.nowPlayingLabel}>Now playing</Text>
+                  <Text style={styles.trackTitle}>
+                    {player.currentTrackTitle ?? 'Current track'}
+                  </Text>
+                  {player.currentTrackArtist ? (
+                    <Text style={styles.trackArtist}>{player.currentTrackArtist}</Text>
+                  ) : null}
+                </View>
+                <SoundcloudAudioPlayer
+                  ref={player.playerRef}
+                  streamUrl={player.currentTrackUrl!}
+                />
+              </View>
+            ) : null}
+          </RoomPlayerCard>
+        </>
+      }
+      chat={
         <RoomChatPanel
           messages={messages}
           newMessage={newMessage}
           onChangeMessage={setNewMessage}
           onSend={send}
-          onSendImage={() => void sendFile('image')}
-          onSendAudio={() => void sendFile('audio')}
+          onSendFile={(mode) => void sendFile(mode)}
+          onPlayTrack={(url) => void player.loadFromChat(url)}
           currentUserName={currentUserName}
         />
-      </View>
-    </ScrollView>
+      }
+      footer={
+        <RoomInviteModal
+          visible={inviteOpen}
+          roomId={roomId}
+          roomType="soundcloud"
+          onClose={() => setInviteOpen(false)}
+        />
+      }
+    />
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    container: {
+    playerWrap: {
       flex: 1,
-      backgroundColor: colors.background,
-    },
-    content: {
-      padding: 16,
-      gap: 16,
-      paddingBottom: 40,
+      justifyContent: 'flex-end',
+      gap: 12,
+      padding: 12,
     },
     nowPlaying: {
-      backgroundColor: colors.card,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 16,
+      gap: 4,
     },
     nowPlayingLabel: {
       fontSize: 11,
       fontWeight: '600',
       textTransform: 'uppercase',
-      color: colors.muted,
-      marginBottom: 4,
+      color: '#ffffff80',
     },
     trackTitle: {
       fontSize: 16,
       fontWeight: '600',
-      color: colors.foreground,
+      color: '#fff',
     },
     trackArtist: {
       fontSize: 13,
-      color: colors.muted,
-      marginTop: 4,
+      color: '#ffffff99',
     },
-    player: {
-      height: 80,
-      borderRadius: 12,
-      overflow: 'hidden',
-      backgroundColor: '#111',
-    },
-    webview: {
-      flex: 1,
-      backgroundColor: '#111',
-    },
-    chat: {
-      minHeight: 320,
+    audio: {
+      height: 48,
     },
   });
 }

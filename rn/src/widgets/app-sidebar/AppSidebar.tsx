@@ -4,7 +4,7 @@ import { House, Users, ChatCircle } from 'phosphor-react-native';
 import { useAppNavigation } from '@/app/navigation/use-app-navigation';
 import { useAuth } from '@/entities/user/model/auth.store';
 import { UserAvatar } from '@/entities/user/ui/UserAvatar';
-import { YouTubeIcon, SoundCloudIcon } from '@/shared/ui/icons/PlatformIcons';
+import { YouTubeIcon, SoundCloudIcon, BeletIcon } from '@/shared/ui/icons/PlatformIcons';
 import { useTheme } from '@/shared/theme/ThemeProvider';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { useAppNav } from '@/widgets/app-nav/use-app-nav';
@@ -15,6 +15,7 @@ const watchItems = [
   { title: 'Home', route: 'Home' as const, Icon: House },
   { title: 'YouTube', route: 'YoutubeHub' as const, Icon: YouTubeIcon, isBrand: true },
   { title: 'SoundCloud', route: 'SoundcloudHub' as const, Icon: SoundCloudIcon, isBrand: true },
+  { title: 'Belet', route: 'BeletHub' as const, Icon: BeletIcon, isBrand: true },
 ];
 
 const socialItems = [

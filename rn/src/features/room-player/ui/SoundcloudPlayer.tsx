@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
-import { WebView } from 'react-native-webview';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  Alert,
+} from 'react-native';
+import { MagnifyingGlass } from 'phosphor-react-native';
 import { socketService } from '@/shared/api/socket.service';
 import {
   soundCloudAPI,
@@ -8,53 +15,27 @@ import {
   type SoundCloudSearchItem,
 } from '@/shared/api/soundcloud.api';
 import type { VideoRoom, VideoState } from '@/shared/api/room.types';
+import type { SoundcloudAudioPlayerRef } from '@/features/room-player/ui/SoundcloudAudioPlayer';
 import { Input } from '@/shared/ui/Input';
 import { useTheme } from '@/shared/theme/ThemeProvider';
 import type { ThemeColors } from '@/shared/theme/colors';
 
-function buildAudioHtml(streamUrl: string) {
-  return `<!DOCTYPE html>
-<html><body style="margin:0;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;">
-<audio id="audio" controls autoplay style="width:100%;max-width:400px;">
-<source src="${streamUrl}" type="audio/mpeg" />
-</audio>
-<script>
-const audio = document.getElementById('audio');
-audio.addEventListener('play', () => post('play', { currentTime: audio.currentTime }));
-audio.addEventListener('pause', () => post('pause', { currentTime: audio.currentTime }));
-audio.addEventListener('seeked', () => post('seek', { currentTime: audio.currentTime }));
-function post(type, data) {
-  window.ReactNativeWebView.postMessage(JSON.stringify({ type, ...data }));
-}
-document.addEventListener('message', handle);
-window.addEventListener('message', handle);
-function handle(event) {
-  try {
-    const data = JSON.parse(event.data);
-    if (data.type === 'sync') {
-      audio.currentTime = data.currentTime || 0;
-      if (data.isPlaying) audio.play(); else audio.pause();
-    } else if (data.type === 'load') {
-      audio.src = data.streamUrl;
-      audio.load();
-      audio.play();
-    }
-  } catch(e) {}
-}
-</script>
-</body></html>`;
-}
-
 export function useSoundcloudPlayer(roomId: string, room: VideoRoom | null, loadedAt: number) {
-  const webRef = useRef<WebView>(null);
+  const playerRef = useRef<SoundcloudAudioPlayerRef>(null);
   const [currentTrackUrl, setCurrentTrackUrl] = useState<string | null>(null);
   const [currentTrackTitle, setCurrentTrackTitle] = useState<string | null>(null);
   const [currentTrackArtist, setCurrentTrackArtist] = useState<string | null>(null);
   const [isSelectingTrack, setIsSelectingTrack] = useState(false);
   const isLocalAction = useRef(false);
 
-  const postToPlayer = useCallback((data: object) => {
-    webRef.current?.postMessage(JSON.stringify(data));
+  const postToPlayer = useCallback((data: { type: string; streamUrl?: string; currentTime?: number; isPlaying?: boolean }) => {
+    if (data.type === 'load' && data.streamUrl) {
+      playerRef.current?.load(data.streamUrl);
+      return;
+    }
+    if (data.type === 'sync') {
+      playerRef.current?.sync(data.currentTime ?? 0, data.isPlaying ?? false);
+    }
   }, []);
 
   useEffect(() => {
@@ -83,8 +64,12 @@ export function useSoundcloudPlayer(roomId: string, room: VideoRoom | null, load
 
     socketService.on('audio:track_change', onTrackChange);
     socketService.on('video:state', onState);
-    socketService.on('video:play', (d) => postToPlayer({ type: 'sync', currentTime: d.currentTime, isPlaying: true }));
-    socketService.on('video:pause', (d) => postToPlayer({ type: 'sync', currentTime: d.currentTime, isPlaying: false }));
+    socketService.on('video:play', (d) =>
+      postToPlayer({ type: 'sync', currentTime: d.currentTime, isPlaying: true }),
+    );
+    socketService.on('video:pause', (d) =>
+      postToPlayer({ type: 'sync', currentTime: d.currentTime, isPlaying: false }),
+    );
 
     return () => {
       socketService.off('audio:track_change', onTrackChange);
@@ -141,28 +126,47 @@ export function useSoundcloudPlayer(roomId: string, room: VideoRoom | null, load
     }
   }
 
+  async function loadFromChat(url: string) {
+    if (!url) return;
+
+    setCurrentTrackUrl(url);
+    setCurrentTrackTitle('Shared track');
+    setCurrentTrackArtist(null);
+    socketService.emit('audio:track_change', {
+      roomId,
+      trackUrl: url,
+      title: 'Shared track',
+      queue: [
+        {
+          id: url,
+          streamUrl: url,
+          title: 'Shared track',
+          permalinkUrl: url,
+          durationMs: 0,
+        },
+      ],
+      queueIndex: 0,
+    });
+    postToPlayer({ type: 'load', streamUrl: url });
+  }
+
   return {
-    webRef,
+    playerRef,
     currentTrackUrl,
     currentTrackTitle,
     currentTrackArtist,
     isSelectingTrack,
     selectTrack,
-    postToPlayer,
-    buildAudioHtml,
+    loadFromChat,
   };
 }
 
 interface SoundcloudTrackSearchProps {
-  roomId: string;
-  participants: number;
   isSelectingTrack?: boolean;
   onSelectTrack: (track: SoundCloudTrack, queue: SoundCloudTrack[]) => void;
 }
 
 export function SoundcloudTrackSearch({
-  roomId,
-  participants,
   isSelectingTrack,
   onSelectTrack,
 }: SoundcloudTrackSearchProps) {
@@ -194,7 +198,7 @@ export function SoundcloudTrackSearch({
       } finally {
         setIsSearching(false);
       }
-    }, 500);
+    }, 400);
     return () => clearTimeout(timer);
   }, [query]);
 
@@ -210,68 +214,108 @@ export function SoundcloudTrackSearch({
   }
 
   return (
-    <View style={styles.searchCard}>
-      <Text style={styles.header}>
-        SoundCloud Room · {roomId.slice(0, 8)} · {participants} online
-      </Text>
-      <Input
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search tracks or paste SoundCloud URL"
-        autoCapitalize="none"
-      />
+    <View style={styles.root}>
+      <View style={styles.field}>
+        <View style={styles.searchIcon} pointerEvents="none">
+          <MagnifyingGlass size={18} color={colors.muted} weight="bold" />
+        </View>
+        <Input
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search tracks or paste SoundCloud URL"
+          autoCapitalize="none"
+          style={styles.input}
+        />
+      </View>
+
       {(isSearching || isSelectingTrack) && <Text style={styles.status}>Loading...</Text>}
-      {results.map((item) => {
-        if ('kind' in item && item.kind === 'playlist') return null;
-        const track = item as SoundCloudTrack;
-        return (
-          <Pressable key={track.id} style={styles.result} onPress={() => pickTrack(track)}>
-            <Text style={styles.trackTitle} numberOfLines={1}>
-              {track.title}
-            </Text>
-            {track.username ? (
-              <Text style={styles.trackArtist} numberOfLines={1}>
-                {track.username}
-              </Text>
-            ) : null}
-          </Pressable>
-        );
-      })}
+
+      {results.length > 0 ? (
+        <View style={styles.results}>
+          <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled style={styles.resultsScroll}>
+            {results.map((item) => {
+              if ('kind' in item && item.kind === 'playlist') return null;
+              const track = item as SoundCloudTrack;
+              return (
+                <Pressable
+                  key={track.id}
+                  style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+                  onPress={() => pickTrack(track)}
+                >
+                  <View style={styles.itemBody}>
+                    <Text style={styles.trackTitle} numberOfLines={1}>
+                      {track.title}
+                    </Text>
+                    {track.username ? (
+                      <Text style={styles.trackArtist} numberOfLines={1}>
+                        {track.username}
+                      </Text>
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
     </View>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    searchCard: {
-      backgroundColor: colors.card,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 14,
-      gap: 8,
+    root: {
+      gap: 10,
     },
-    header: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: colors.foreground,
+    field: {
+      position: 'relative',
+    },
+    searchIcon: {
+      position: 'absolute',
+      left: 14,
+      top: 0,
+      bottom: 0,
+      justifyContent: 'center',
+      zIndex: 1,
+    },
+    input: {
+      height: 40,
+      paddingLeft: 40,
+      backgroundColor: `${colors.background}99`,
+      borderColor: `${colors.border}99`,
     },
     status: {
       fontSize: 12,
       color: colors.muted,
     },
-    result: {
+    results: {
+      maxHeight: 220,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: `${colors.border}99`,
+      backgroundColor: colors.background,
+      overflow: 'hidden',
+    },
+    resultsScroll: {
+      maxHeight: 220,
+    },
+    item: {
+      paddingHorizontal: 12,
       paddingVertical: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+    },
+    itemPressed: {
+      backgroundColor: colors.mutedBg,
+    },
+    itemBody: {
+      minWidth: 0,
     },
     trackTitle: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '500',
       color: colors.foreground,
     },
     trackArtist: {
-      fontSize: 12,
+      fontSize: 11,
       color: colors.muted,
       marginTop: 2,
     },

@@ -1,4 +1,4 @@
-export type RoomType = 'youtube' | 'soundcloud';
+export type RoomType = 'youtube' | 'soundcloud' | 'belet';
 
 export interface SoundcloudQueueItem {
   id: string | number;
@@ -21,6 +21,8 @@ export interface VideoRoom {
   soundcloudArtworkUrl?: string;
   soundcloudQueue?: SoundcloudQueueItem[];
   soundcloudQueueIndex?: number;
+  beletUrl?: string;
+  beletTitle?: string;
   createdAt: string;
   currentTime: number;
   isPlaying: boolean;
@@ -30,6 +32,7 @@ export interface VideoRoom {
 export interface CreateRoomDto {
   youtubeUrl?: string;
   soundcloudUrl?: string;
+  beletUrl?: string;
   type?: RoomType;
 }
 

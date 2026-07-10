@@ -3,7 +3,7 @@ import type { AppStackParamList } from '@/app/navigation/types';
 
 export type AppNavTarget = keyof Pick<
   AppStackParamList,
-  'Home' | 'YoutubeHub' | 'SoundcloudHub' | 'Friends' | 'Messages' | 'Profile'
+  'Home' | 'YoutubeHub' | 'SoundcloudHub' | 'BeletHub' | 'Friends' | 'Messages' | 'Profile'
 >;
 
 function getActiveRouteName(
@@ -35,6 +35,8 @@ export function useAppNav() {
         return routeName === 'YoutubeHub' || routeName === 'Room';
       case 'SoundcloudHub':
         return routeName === 'SoundcloudHub' || routeName === 'SoundRoom';
+      case 'BeletHub':
+        return routeName === 'BeletHub' || routeName === 'BeletRoom';
       case 'Messages':
         return routeName === 'Messages' || routeName === 'MessagesThread';
       case 'Friends':

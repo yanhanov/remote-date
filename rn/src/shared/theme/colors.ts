@@ -7,6 +7,8 @@ export type ThemeColors = {
   border: string;
   muted: string;
   mutedBg: string;
+  secondary: string;
+  secondaryForeground: string;
   accent: string;
   primary: string;
   primaryForeground: string;
@@ -14,6 +16,7 @@ export type ThemeColors = {
   destructiveBg: string;
   youtube: string;
   soundcloud: string;
+  belet: string;
   success: string;
   warning: string;
   radius: number;
@@ -26,6 +29,8 @@ export const lightColors: ThemeColors = {
   border: '#dfe1e9',
   muted: '#666875',
   mutedBg: '#eff0f8',
+  secondary: '#f3f2f8',
+  secondaryForeground: '#454755',
   accent: '#e9eeff',
   primary: '#4c4ee4',
   primaryForeground: '#fafbff',
@@ -33,6 +38,7 @@ export const lightColors: ThemeColors = {
   destructiveBg: '#fee2e2',
   youtube: '#ff0000',
   soundcloud: '#ff5500',
+  belet: '#e4002b',
   success: '#16a34a',
   warning: '#d97706',
   radius: 10,
@@ -45,6 +51,8 @@ export const darkColors: ThemeColors = {
   border: 'rgba(255,255,255,0.10)',
   muted: '#9597a5',
   mutedBg: '#1e1f25',
+  secondary: '#2e2f38',
+  secondaryForeground: '#e8e8ec',
   accent: '#202330',
   primary: '#8798ff',
   primaryForeground: '#0f111a',
@@ -52,6 +60,7 @@ export const darkColors: ThemeColors = {
   destructiveBg: 'rgba(241,77,76,0.15)',
   youtube: '#ff0000',
   soundcloud: '#ff5500',
+  belet: '#e4002b',
   success: '#22c55e',
   warning: '#f59e0b',
   radius: 10,

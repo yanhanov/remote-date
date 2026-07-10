@@ -157,6 +157,7 @@ impl MongoAuthRepository {
             avatar_url: None,
             last_youtube_room_id: None,
             last_soundcloud_room_id: None,
+            last_belet_room_id: None,
         };
 
         self.users.insert_one(&user).await?;
@@ -257,6 +258,7 @@ impl MongoAuthRepository {
         let field = match room_type {
             "youtube" => "lastYoutubeRoomId",
             "soundcloud" => "lastSoundcloudRoomId",
+            "belet" => "lastBeletRoomId",
             _ => return Err(anyhow::anyhow!("Invalid room type")),
         };
 
@@ -278,6 +280,7 @@ impl MongoAuthRepository {
         Ok(match (user, room_type) {
             (Some(u), "youtube") => u.last_youtube_room_id,
             (Some(u), "soundcloud") => u.last_soundcloud_room_id,
+            (Some(u), "belet") => u.last_belet_room_id,
             (Some(_), _) => return Err(anyhow::anyhow!("Invalid room type")),
             (None, _) => None,
         })

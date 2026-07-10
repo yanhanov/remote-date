@@ -39,6 +39,11 @@ export interface SocketEmitEvents {
     channelTitle?: string | null;
     thumbnailUrl?: string | null;
   }) => void;
+  'belet:change': (data: {
+    roomId: string;
+    beletUrl: string;
+    title?: string | null;
+  }) => void;
 }
 
 export interface SocketOnEvents {
@@ -76,6 +81,10 @@ export interface SocketOnEvents {
     title?: string;
     channelTitle?: string;
     thumbnailUrl?: string;
+  }) => void;
+  'belet:change': (data: {
+    beletUrl: string;
+    title?: string;
   }) => void;
 }
 
@@ -356,6 +365,22 @@ class SocketService {
           title: data.title,
           channelTitle: data.channelTitle,
           thumbnailUrl: data.thumbnailUrl,
+        });
+        break;
+      }
+      case 'belet:change': {
+        const [data] = args as [
+          {
+            roomId: string;
+            beletUrl: string;
+            title?: string | null;
+          },
+        ];
+        this.send({
+          event: 'beletChange',
+          roomId: data.roomId,
+          beletUrl: data.beletUrl,
+          title: data.title,
         });
         break;
       }

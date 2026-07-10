@@ -2,11 +2,13 @@
   "expo": {
     "name": "Remote Date",
     "slug": "remote-date",
+    "scheme": "remotedate",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
+      "bundleIdentifier": "com.remotedate.app",
       "supportsTablet": true
     },
     "android": {
@@ -24,11 +26,9 @@
     },
     "plugins": [
       [
-        "expo-build-properties",
+        "./plugins/with-android-ndk",
         {
-          "android": {
-            "ndkVersion": "28.2.13676358"
-          }
+          "ndkVersion": "28.2.13676358"
         }
       ]
     ]

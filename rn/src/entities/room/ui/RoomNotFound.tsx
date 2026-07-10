@@ -6,7 +6,7 @@ import type { ThemeColors } from "@/shared/theme/colors";
 
 interface RoomNotFoundProps {
   roomId: string;
-  roomType: "youtube" | "soundcloud";
+  roomType: "youtube" | "soundcloud" | "belet";
   error: string;
   onGoBack: () => void;
 }
@@ -23,7 +23,12 @@ export function RoomNotFound({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
-        {roomType === "youtube" ? "YouTube room" : "SoundCloud room"} not found
+        {roomType === "youtube"
+          ? "YouTube room"
+          : roomType === "soundcloud"
+            ? "SoundCloud room"
+            : "Belet room"}{" "}
+        not found
       </Text>
       <Text style={styles.subtitle}>Room {roomId.slice(0, 8)}</Text>
       <Text style={styles.error}>{error}</Text>
