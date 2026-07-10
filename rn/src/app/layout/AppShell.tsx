@@ -14,7 +14,8 @@ export function AppShell({ children }: PropsWithChildren) {
   const { isWide } = useResponsive();
   const { routeName } = useAppNav();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const hideMobileNav = routeName === 'BeletRoom';
+  const hideMobileNav =
+    routeName === 'BeletRoom' || routeName === 'MessagesThread';
 
   return (
     <View style={styles.root}>

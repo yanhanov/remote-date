@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import { MagnifyingGlass, Users, UserPlus } from "phosphor-react-native";
+import { MagnifyingGlass, UserPlus } from "phosphor-react-native";
 import type { AppScreenProps } from "@/app/navigation/types";
 import { socialAPI } from "@/shared/api/social.api";
 import type {
@@ -141,16 +141,11 @@ export function FriendsScreen({ navigation }: AppScreenProps<"Friends">) {
       contentContainerStyle={styles.content}
     >
       <View style={styles.brand}>
-        <View style={styles.brandIcon}>
-          <Users size={28} color={colors.primary} weight="duotone" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={commonStyles.eyebrow}>Social</Text>
-          <Text style={commonStyles.title}>Friends</Text>
-          <Text style={commonStyles.subtitle}>
-            Manage your network or find someone new.
-          </Text>
-        </View>
+        <Text style={commonStyles.eyebrow}>Social</Text>
+        <Text style={commonStyles.title}>Friends</Text>
+        <Text style={commonStyles.subtitle}>
+          Manage your network or find someone new.
+        </Text>
       </View>
 
       <View style={styles.tabs}>
@@ -314,19 +309,7 @@ function createStyles(colors: ThemeColors) {
       paddingBottom: 40,
     },
     brand: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: 16,
-    },
-    brandIcon: {
-      width: 56,
-      height: 56,
-      borderRadius: 12,
-      backgroundColor: `${colors.primary}1a`,
-      borderWidth: 1,
-      borderColor: `${colors.primary}33`,
-      alignItems: "center",
-      justifyContent: "center",
+      gap: 0,
     },
     tabs: {
       flexDirection: "row",

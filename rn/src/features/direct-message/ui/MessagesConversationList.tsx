@@ -11,6 +11,7 @@ import {
 import type { ConversationItem } from '@/shared/api/social.types';
 import { UserAvatar } from '@/entities/user/ui/UserAvatar';
 import { useTheme } from '@/shared/theme/ThemeProvider';
+import { createCommonStyles } from '@/shared/theme/styles';
 import type { ThemeColors } from '@/shared/theme/colors';
 
 interface MessagesConversationListProps {
@@ -27,58 +28,78 @@ export function MessagesConversationList({
   onSelect,
 }: MessagesConversationListProps) {
   const { colors } = useTheme();
+  const commonStyles = useMemo(() => createCommonStyles(colors), [colors]);
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const header = (
+    <View style={styles.header}>
+      <Text style={commonStyles.eyebrow}>Social</Text>
+      <Text style={commonStyles.title}>Messages</Text>
+      <Text style={commonStyles.subtitle}>
+        Your conversations with friends.
+      </Text>
+    </View>
+  );
 
   if (isLoading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.muted} />
+      <View style={styles.root}>
+        {header}
+        <View style={styles.centered}>
+          <ActivityIndicator color={colors.muted} />
+        </View>
       </View>
     );
   }
 
   if (!conversations.length) {
     return (
-      <Text style={styles.empty}>
-        No conversations yet. Add friends from the Friends tab to start chatting.
-      </Text>
+      <View style={styles.root}>
+        {header}
+        <Text style={styles.empty}>
+          No conversations yet. Add friends from the Friends tab to start chatting.
+        </Text>
+      </View>
     );
   }
 
   return (
-    <FlatList
-      data={conversations}
-      keyExtractor={(item) => item.conversationId}
-      contentContainerStyle={styles.list}
-      renderItem={({ item }) => {
-        const isActive = activeUserId === item.userId;
-        return (
-          <Pressable
-            onPress={() => onSelect(item.userId)}
-            style={({ pressed }) => [
-              styles.row,
-              isActive && styles.rowActive,
-              pressed && !isActive && styles.rowPressed,
-            ]}
-          >
-            <UserAvatar user={item} size="md" />
-            <View style={styles.rowBody}>
-              <View style={styles.rowTop}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {item.displayName}
+    <View style={styles.root}>
+      <FlatList
+        data={conversations}
+        keyExtractor={(item) => item.conversationId}
+        ListHeaderComponent={header}
+        contentContainerStyle={styles.list}
+        renderItem={({ item }) => {
+          const isActive = activeUserId === item.userId;
+          return (
+            <Pressable
+              onPress={() => onSelect(item.userId)}
+              style={({ pressed }) => [
+                styles.row,
+                isActive && styles.rowActive,
+                pressed && !isActive && styles.rowPressed,
+              ]}
+            >
+              <UserAvatar user={item} size="md" />
+              <View style={styles.rowBody}>
+                <View style={styles.rowTop}>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {item.displayName}
+                  </Text>
+                  {item.lastMessageAt ? (
+                    <Text style={styles.time}>{formatTime(item.lastMessageAt)}</Text>
+                  ) : null}
+                </View>
+                <Text style={styles.preview} numberOfLines={1}>
+                  {item.lastMessageText || 'No messages yet'}
                 </Text>
-                {item.lastMessageAt ? (
-                  <Text style={styles.time}>{formatTime(item.lastMessageAt)}</Text>
-                ) : null}
               </View>
-              <Text style={styles.preview} numberOfLines={1}>
-                {item.lastMessageText || 'No messages yet'}
-              </Text>
-            </View>
-          </Pressable>
-        );
-      }}
-    />
+            </Pressable>
+          );
+        }}
+      />
+    </View>
   );
 }
 
@@ -91,6 +112,16 @@ function formatTime(value: string) {
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
+    root: {
+      flex: 1,
+      minHeight: 0,
+    },
+    // Match Friends / Profile / Home: padding 24, paddingTop 48
+    header: {
+      paddingHorizontal: 24,
+      paddingTop: 48,
+      paddingBottom: 8,
+    },
     centered: {
       flex: 1,
       alignItems: 'center',
@@ -102,18 +133,20 @@ function createStyles(colors: ThemeColors) {
       color: colors.muted,
       fontSize: 14,
       lineHeight: 20,
-      paddingHorizontal: 16,
+      paddingHorizontal: 24,
       paddingVertical: 40,
     },
     list: {
-      paddingVertical: 4,
+      paddingBottom: 16,
     },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
+      marginHorizontal: 12,
       paddingHorizontal: 12,
-      paddingVertical: 10,
+      paddingVertical: 12,
+      borderRadius: 14,
       ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : null),
     },
     rowActive: {

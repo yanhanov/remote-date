@@ -21,8 +21,6 @@ import { MessageStatusIcon } from '@/features/direct-message/ui/MessageStatusIco
 import { parseRoomInvite } from '@/shared/lib/room-invite-message';
 import { Input } from '@/shared/ui/Input';
 import { useTheme } from '@/shared/theme/ThemeProvider';
-import { useResponsive } from '@/shared/lib/use-responsive';
-import { MOBILE_NAV_HEIGHT } from '@/widgets/mobile-nav/MobileNav';
 import type { ThemeColors } from '@/shared/theme/colors';
 
 const HEADER_HEIGHT = 56;
@@ -30,6 +28,7 @@ const HEADER_INSET = 10;
 const COMPOSER_HEIGHT = 44;
 const COMPOSER_INSET = 10;
 const STACK_GAP = 8;
+const BUBBLE_MAX_WIDTH = 320;
 
 interface MessagesThreadPanelProps {
   userId: string | null;
@@ -51,12 +50,8 @@ export function MessagesThreadPanel({
   onBack,
 }: MessagesThreadPanelProps) {
   const { colors } = useTheme();
-  const { isLg } = useResponsive();
   const insets = useSafeAreaInsets();
-  const styles = useMemo(
-    () => createStyles(colors, isLg, insets.bottom),
-    [colors, isLg, insets.bottom],
-  );
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [activeDisplayName, setActiveDisplayName] = useState('');
   const [activeAvatarUrl, setActiveAvatarUrl] = useState<string | undefined>();
@@ -64,12 +59,11 @@ export function MessagesThreadPanel({
   const [isLoading, setIsLoading] = useState(false);
   const listRef = useRef<FlatList<DirectMessageItem>>(null);
 
-  const composerBottom = isLg
-    ? COMPOSER_INSET
-    : COMPOSER_INSET + MOBILE_NAV_HEIGHT + insets.bottom;
-
-  const listPaddingTop = HEADER_INSET + HEADER_HEIGHT + STACK_GAP;
-  const listPaddingBottom = composerBottom + COMPOSER_HEIGHT + STACK_GAP + COMPOSER_INSET;
+  // MobileNav is hidden on MessagesThread — sit above home indicator like Vue desktop.
+  const headerTop = insets.top + HEADER_INSET;
+  const composerBottom = COMPOSER_INSET + insets.bottom;
+  const listPaddingTop = headerTop + HEADER_HEIGHT + STACK_GAP;
+  const listPaddingBottom = composerBottom + COMPOSER_HEIGHT + STACK_GAP;
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -125,12 +119,13 @@ export function MessagesThreadPanel({
   if (!userId) {
     return (
       <View style={styles.emptyWrap}>
+        <ThreadBackdrop colors={colors} />
         <View style={styles.emptyIcon}>
           <ChatsCircle size={32} color={colors.primary} weight="duotone" />
         </View>
         <Text style={styles.emptyTitle}>Select a chat</Text>
         <Text style={styles.emptySubtitle}>
-          Choose a conversation or start messaging from a friend's profile.
+          Choose a conversation or start messaging from a friend&apos;s profile.
         </Text>
       </View>
     );
@@ -142,11 +137,16 @@ export function MessagesThreadPanel({
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
-      <View style={styles.header}>
+      <ThreadBackdrop colors={colors} />
+
+      {/* Floating pill header — mirrors Vue messages-page__thread-header */}
+      <View style={[styles.header, { top: headerTop }]}>
         {showBackButton ? (
           <Pressable
             onPress={onBack}
+            hitSlop={6}
             style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
             accessibilityLabel="Back to chats"
           >
@@ -166,7 +166,6 @@ export function MessagesThreadPanel({
             }}
             size="sm"
           />
-
           <View style={styles.headerText}>
             <Text style={styles.headerName} numberOfLines={1}>
               {activeDisplayName}
@@ -192,9 +191,11 @@ export function MessagesThreadPanel({
           ]}
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          ListEmptyComponent={
+            <Text style={styles.listEmpty}>No messages yet. Say hello!</Text>
+          }
           renderItem={({ item }) => {
-            const invite = parseRoomInvite(item.text);
-            const isInvite = Boolean(invite);
+            const isInvite = Boolean(parseRoomInvite(item.text));
 
             return (
               <View style={[styles.messageRow, item.isOwn ? styles.rowOwn : styles.rowOther]}>
@@ -240,6 +241,7 @@ export function MessagesThreadPanel({
         />
       )}
 
+      {/* Floating composer — mirrors Vue messages-page__composer */}
       <View style={[styles.composer, { bottom: composerBottom }]}>
         <Input
           value={newMessage}
@@ -270,6 +272,16 @@ export function MessagesThreadPanel({
   );
 }
 
+function ThreadBackdrop({ colors }: { colors: ThemeColors }) {
+  // Soft top wash only — dotted grid from Vue doesn't translate cleanly on native.
+  return (
+    <View
+      pointerEvents="none"
+      style={[stylesShared.threadGlow, { backgroundColor: `${colors.primary}0F` }]}
+    />
+  );
+}
+
 function formatTime(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     hour: '2-digit',
@@ -277,7 +289,17 @@ function formatTime(value: string) {
   }).format(new Date(value));
 }
 
-function createStyles(colors: ThemeColors, isLg: boolean, safeBottom: number) {
+const stylesShared = StyleSheet.create({
+  threadGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 180,
+  },
+});
+
+function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     root: {
       flex: 1,
@@ -287,27 +309,26 @@ function createStyles(colors: ThemeColors, isLg: boolean, safeBottom: number) {
     },
     header: {
       position: 'absolute',
-      top: HEADER_INSET,
       left: HEADER_INSET,
       right: HEADER_INSET,
       zIndex: 20,
       height: HEADER_HEIGHT,
       borderRadius: 30,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: `${colors.border}66`,
-      backgroundColor: colors.card,
+      backgroundColor: Platform.OS === 'ios' ? `${colors.background}B3` : `${colors.background}E6`,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      paddingHorizontal: isLg ? 12 : 8,
+      paddingHorizontal: 8,
       ...(Platform.OS === 'web'
-        ? { boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)' }
+        ? { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
         : {
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 1 },
             shadowOpacity: 0.06,
             shadowRadius: 4,
-            elevation: 2,
+            elevation: 3,
           }),
     },
     headerMain: {
@@ -316,6 +337,7 @@ function createStyles(colors: ThemeColors, isLg: boolean, safeBottom: number) {
       alignItems: 'center',
       gap: 8,
       minWidth: 0,
+      paddingRight: 4,
     },
     backBtn: {
       width: 36,
@@ -346,13 +368,22 @@ function createStyles(colors: ThemeColors, isLg: boolean, safeBottom: number) {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
+      zIndex: 1,
     },
     list: {
       flex: 1,
+      zIndex: 1,
     },
     listContent: {
       paddingHorizontal: HEADER_INSET,
       gap: 8,
+      flexGrow: 1,
+    },
+    listEmpty: {
+      textAlign: 'center',
+      color: colors.muted,
+      fontSize: 14,
+      marginTop: 48,
     },
     messageRow: {
       flexDirection: 'row',
@@ -364,36 +395,36 @@ function createStyles(colors: ThemeColors, isLg: boolean, safeBottom: number) {
       justifyContent: 'flex-start',
     },
     bubble: {
-      maxWidth: '82%',
+      maxWidth: BUBBLE_MAX_WIDTH,
       borderRadius: 20,
       paddingHorizontal: 14,
       paddingVertical: 8,
     },
     bubbleOwn: {
       backgroundColor: colors.primary,
-      borderBottomRightRadius: colors.radius - 2,
+      borderBottomRightRadius: 6,
       ...(Platform.OS === 'web'
         ? { boxShadow: `0 8px 24px -10px ${colors.primary}73` }
         : {
             shadowColor: colors.primary,
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.28,
-            shadowRadius: 12,
+            shadowOpacity: 0.35,
+            shadowRadius: 10,
             elevation: 3,
           }),
     },
     bubbleOther: {
       backgroundColor: `${colors.card}E6`,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: `${colors.border}99`,
-      borderBottomLeftRadius: colors.radius - 2,
+      borderBottomLeftRadius: 6,
       ...(Platform.OS === 'web'
         ? { boxShadow: '0 4px 20px -12px rgba(0,0,0,0.1)' }
         : {
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.06,
-            shadowRadius: 8,
+            shadowRadius: 6,
             elevation: 1,
           }),
     },
@@ -408,7 +439,7 @@ function createStyles(colors: ThemeColors, isLg: boolean, safeBottom: number) {
       gap: 8,
     },
     messageTextWrap: {
-      flex: 1,
+      flexShrink: 1,
       minWidth: 0,
     },
     meta: {
@@ -438,7 +469,7 @@ function createStyles(colors: ThemeColors, isLg: boolean, safeBottom: number) {
       right: COMPOSER_INSET,
       zIndex: 20,
       flexDirection: 'row',
-      alignItems: 'flex-end',
+      alignItems: 'center',
       gap: 8,
     },
     composerInput: {
@@ -447,46 +478,46 @@ function createStyles(colors: ThemeColors, isLg: boolean, safeBottom: number) {
       height: COMPOSER_HEIGHT,
       borderRadius: 30,
       paddingHorizontal: 16,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: `${colors.border}80`,
-      backgroundColor: colors.card,
+      backgroundColor: `${colors.card}BF`,
       fontSize: 15,
       ...(Platform.OS === 'web'
-        ? { boxShadow: '0 1px 3px 0 rgba(0,0,0,0.06)' }
+        ? { boxShadow: '0 8px 32px -12px rgba(0,0,0,0.12)' }
         : {
             shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.06,
-            shadowRadius: 6,
-            elevation: 2,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 12,
+            elevation: 4,
           }),
     },
     sendBtn: {
       width: COMPOSER_HEIGHT,
       height: COMPOSER_HEIGHT,
       borderRadius: 30,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       alignItems: 'center',
       justifyContent: 'center',
     },
     sendBtnActive: {
-      borderColor: `${colors.border}80`,
+      borderColor: 'transparent',
       backgroundColor: colors.primary,
-      ...(Platform.OS === 'web'
-        ? { boxShadow: `0 4px 16px -4px ${colors.primary}4D` }
-        : {
+      ...(Platform.OS === 'ios'
+        ? {
             shadowColor: colors.primary,
             shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.25,
+            shadowOpacity: 0.35,
             shadowRadius: 6,
-            elevation: 2,
-          }),
+          }
+        : { elevation: 3 }),
     },
     sendBtnIdle: {
       borderColor: `${colors.border}80`,
-      backgroundColor: colors.card,
+      backgroundColor: `${colors.card}BF`,
     },
     sendBtnPressed: {
-      opacity: 0.92,
+      opacity: 0.9,
       transform: [{ scale: 0.96 }],
     },
     emptyWrap: {
@@ -494,7 +525,9 @@ function createStyles(colors: ThemeColors, isLg: boolean, safeBottom: number) {
       alignItems: 'center',
       justifyContent: 'center',
       padding: 32,
-      gap: 16,
+      gap: 12,
+      overflow: 'hidden',
+      backgroundColor: colors.background,
     },
     emptyIcon: {
       width: 64,
@@ -505,12 +538,15 @@ function createStyles(colors: ThemeColors, isLg: boolean, safeBottom: number) {
       borderColor: `${colors.primary}33`,
       alignItems: 'center',
       justifyContent: 'center',
+      marginBottom: 4,
+      zIndex: 1,
     },
     emptyTitle: {
       fontSize: 16,
       fontWeight: '600',
       color: colors.foreground,
       letterSpacing: -0.2,
+      zIndex: 1,
     },
     emptySubtitle: {
       fontSize: 14,
@@ -518,6 +554,7 @@ function createStyles(colors: ThemeColors, isLg: boolean, safeBottom: number) {
       color: colors.muted,
       textAlign: 'center',
       maxWidth: 280,
+      zIndex: 1,
     },
   });
 }

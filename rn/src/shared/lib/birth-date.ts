@@ -4,13 +4,33 @@ export function toDateInputValue(value?: string | null): string {
   return match?.[1] ?? '';
 }
 
-export function computeAge(birthDate?: string | null): number | null {
-  const dateStr = toDateInputValue(birthDate);
-  if (!dateStr) return null;
+export function isValidBirthDate(value?: string | null): boolean {
+  const dateStr = toDateInputValue(value);
+  if (!dateStr) return false;
 
   const [year, month, day] = dateStr.split('-').map(Number);
-  if (!year || !month || !day) return null;
+  if (!year || !month || !day) return false;
+  if (year < 1900 || month < 1 || month > 12 || day < 1 || day > 31) return false;
 
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return false;
+  }
+
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  return date.getTime() <= today.getTime();
+}
+
+export function computeAge(birthDate?: string | null): number | null {
+  if (!isValidBirthDate(birthDate)) return null;
+  const dateStr = toDateInputValue(birthDate);
+
+  const [year, month, day] = dateStr.split('-').map(Number);
   const birth = new Date(year, month - 1, day);
   const today = new Date();
 
@@ -24,12 +44,10 @@ export function computeAge(birthDate?: string | null): number | null {
 }
 
 export function formatBirthDate(value?: string | null): string | null {
+  if (!isValidBirthDate(value)) return null;
   const dateStr = toDateInputValue(value);
-  if (!dateStr) return null;
 
   const [year, month, day] = dateStr.split('-').map(Number);
-  if (!year || !month || !day) return null;
-
   const date = new Date(year, month - 1, day);
   return new Intl.DateTimeFormat(undefined, {
     day: 'numeric',

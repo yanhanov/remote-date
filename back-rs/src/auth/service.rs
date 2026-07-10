@@ -249,28 +249,41 @@ impl AuthService {
             .ok_or_else(|| anyhow!("User not found"))?;
 
         if let Some(raw) = dto.username {
-            let username = normalize_username(&raw)?;
-            if let Some(other) = repo.get_user_by_username(&username).await? {
-                if other.id != user.id {
-                    return Err(anyhow!("Username is already taken"));
+            if raw.trim().is_empty() {
+                user.username = None;
+            } else {
+                let username = normalize_username(&raw)?;
+                if let Some(other) = repo.get_user_by_username(&username).await? {
+                    if other.id != user.id {
+                        return Err(anyhow!("Username is already taken"));
+                    }
                 }
+                user.username = Some(username);
             }
-            user.username = Some(username);
         }
         if let Some(first) = dto.first_name {
-            user.first_name = Some(first);
+            user.first_name = if first.trim().is_empty() {
+                None
+            } else {
+                Some(first.trim().to_string())
+            };
         }
         if let Some(last) = dto.last_name {
-            user.last_name = Some(last);
+            user.last_name = if last.trim().is_empty() {
+                None
+            } else {
+                Some(last.trim().to_string())
+            };
         }
         if let Some(url) = dto.avatar_url {
-            user.avatar_url = Some(url);
+            user.avatar_url = if url.is_empty() { None } else { Some(url) };
         }
         if let Some(sex) = dto.sex {
             user.sex = match sex.as_str() {
                 "male" => Some(Sex::Male),
                 "female" => Some(Sex::Female),
                 "other" => Some(Sex::Other),
+                "" => None,
                 _ => user.sex,
             };
         }

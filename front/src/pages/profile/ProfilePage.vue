@@ -194,16 +194,19 @@ const onSubmit = async () => {
 
   try {
     const updated = await authAPI.updateProfile({
-      username: normalizedUsername || undefined,
-      firstName: firstName.value || undefined,
-      lastName: lastName.value || undefined,
-      birthDate: birthDate.value || undefined,
-      sex: sex.value || undefined,
+      username: normalizedUsername,
+      firstName: firstName.value.trim(),
+      lastName: lastName.value.trim(),
+      birthDate: birthDate.value,
+      sex: sex.value,
     })
 
     authStore.setUser(updated)
+    firstName.value = updated.firstName ?? ''
+    lastName.value = updated.lastName ?? ''
     username.value = updated.username ?? ''
     birthDate.value = toDateInputValue(updated.birthDate)
+    sex.value = (updated.sex as Sex | undefined) ?? ''
     toast.success('Profile saved')
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Failed to update profile'

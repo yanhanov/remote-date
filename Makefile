@@ -55,13 +55,18 @@ dev-ios: ## Metro + iOS Simulator (Expo Go) — удобнее браузера 
 dev-ios-native: ## Собрать и установить iOS dev build в симулятор (WebView, без Expo Go)
 	cd rn && EXPO_PUBLIC_API_URL=$(EXPO_PUBLIC_API_URL) EXPO_PUBLIC_SOCKET_URL=$(EXPO_PUBLIC_SOCKET_URL) npx expo run:ios
 
-dev-android: ## Metro (Expo Go) + открыть на Android emulator
+dev-android: ## Metro (Expo Go) + открыть на Android emulator (поднимет AVD если нужно)
 	@chmod +x rn/scripts/open-android-expo.sh
-	@trap 'kill 0' INT TERM; \
-	cd rn && EXPO_PUBLIC_API_URL=$(EXPO_PUBLIC_API_URL_ANDROID) EXPO_PUBLIC_SOCKET_URL=$(EXPO_PUBLIC_SOCKET_URL_ANDROID) npx expo start --go & \
-	sleep 4; \
-	rn/scripts/open-android-expo.sh; \
-	wait
+	@if lsof -iTCP:8081 -sTCP:LISTEN >/dev/null 2>&1; then \
+		echo "Metro already on :8081 — reusing it"; \
+		rn/scripts/open-android-expo.sh; \
+	else \
+		trap 'kill 0' INT TERM; \
+		cd rn && EXPO_PUBLIC_API_URL=$(EXPO_PUBLIC_API_URL_ANDROID) EXPO_PUBLIC_SOCKET_URL=$(EXPO_PUBLIC_SOCKET_URL_ANDROID) npx expo start --go & \
+		sleep 5; \
+		rn/scripts/open-android-expo.sh; \
+		wait; \
+	fi
 
 dev-android-native: ## Собрать и установить dev build (WebView/Belet, без Expo Go)
 	cd rn && EXPO_PUBLIC_API_URL=$(EXPO_PUBLIC_API_URL_ANDROID) EXPO_PUBLIC_SOCKET_URL=$(EXPO_PUBLIC_SOCKET_URL_ANDROID) npx expo run:android
