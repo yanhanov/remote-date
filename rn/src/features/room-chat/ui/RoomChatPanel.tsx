@@ -180,7 +180,12 @@ export function RoomChatPanel({
           style={({ pressed }) => [styles.iconBtn, styles.sendBtn, pressed && styles.iconBtnPressed]}
           accessibilityLabel="Send message"
         >
-          <PaperPlaneRight size={16} color={colors.primaryForeground} />
+          <PaperPlaneRight
+            size={16}
+            color={colors.primaryForeground}
+            weight="fill"
+            style={{ transform: [{ rotate: '-30deg' }] }}
+          />
         </Pressable>
       </View>
     </View>

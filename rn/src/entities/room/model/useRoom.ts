@@ -44,11 +44,20 @@ export function useRoom(roomId: string) {
   }, [onUserJoined, onUserLeft, onRoomError]);
 
   const load = useCallback(async () => {
-    const data = await roomAPI.getRoom(roomId);
-    setRoom(data);
-    setParticipants(data.participants);
-    setLoadedAt(Date.now());
-    setLoading(false);
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await roomAPI.getRoom(roomId);
+      setRoom(data);
+      setParticipants(data.participants);
+      setLoadedAt(Date.now());
+    } catch (err: unknown) {
+      setRoom(null);
+      setError(err instanceof Error ? err.message : 'Room not found');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   }, [roomId]);
 
   const join = useCallback(() => {

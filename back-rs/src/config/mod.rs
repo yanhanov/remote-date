@@ -5,6 +5,7 @@ use tokio::sync::RwLock;
 
 use crate::auth::MongoAuthRepository;
 use crate::chat::service::ChatStore;
+use crate::rooms::mongo::MongoRoomRepository;
 use crate::rooms::service::RoomStore;
 use crate::social::mongo::MongoSocialRepository;
 
@@ -26,6 +27,7 @@ pub struct AppContext {
     pub settings: Settings,
     pub auth_repo: MongoAuthRepository,
     pub social_repo: MongoSocialRepository,
+    pub room_repo: MongoRoomRepository,
     pub room_store: Arc<RwLock<RoomStore>>,
     pub chat_store: Arc<RwLock<ChatStore>>,
 }

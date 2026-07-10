@@ -242,8 +242,8 @@ function createStyles(colors: ThemeColors) {
       gap: 6,
     },
     field: {
-      height: 44,
-      borderRadius: 12,
+      height: 46,
+      borderRadius: 14,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.background,

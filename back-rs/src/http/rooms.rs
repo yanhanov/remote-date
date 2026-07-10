@@ -8,6 +8,8 @@ use axum::{
 use crate::auth::extractor::AuthUser;
 use crate::config::AppContext;
 use crate::rooms::models::CreateRoomDto;
+use crate::rooms::mongo::PersistedRoom;
+use crate::rooms::persist::ensure_in_memory;
 use crate::rooms::service::RoomService;
 
 /// Router for /api/rooms endpoints.
@@ -24,29 +26,43 @@ async fn create_room(
     user: AuthUser,
     Json(dto): Json<CreateRoomDto>,
 ) -> (axum::http::StatusCode, Json<serde_json::Value>) {
-    let mut store = state.room_store.write().await;
-    match RoomService::create_room(&mut store, dto) {
-        Ok(room) => {
-            let room_type = match room.room_type {
-                crate::rooms::models::RoomType::Youtube => "youtube",
-                crate::rooms::models::RoomType::Soundcloud => "soundcloud",
-                crate::rooms::models::RoomType::Belet => "belet",
-            };
-            let _ = state
-                .auth_repo
-                .set_last_room_id(&user.user_id, &room.id, room_type)
-                .await;
-
-            (
-                axum::http::StatusCode::CREATED,
-                Json(serde_json::to_value(room).unwrap()),
-            )
+    let room = {
+        let mut store = state.room_store.write().await;
+        match RoomService::create_room(&mut store, dto) {
+            Ok(room) => room,
+            Err(err) => {
+                return (
+                    axum::http::StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": err.to_string() })),
+                );
+            }
         }
-        Err(err) => (
-            axum::http::StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": err.to_string() })),
-        ),
+    };
+
+    let room_type = match room.room_type {
+        crate::rooms::models::RoomType::Youtube => "youtube",
+        crate::rooms::models::RoomType::Soundcloud => "soundcloud",
+        crate::rooms::models::RoomType::Belet => "belet",
+    };
+    let _ = state
+        .auth_repo
+        .set_last_room_id(&user.user_id, &room.id, room_type)
+        .await;
+
+    {
+        let store = state.room_store.read().await;
+        if let (Some(entry), Some(video_state)) = (store.entry(&room.id), store.state(&room.id)) {
+            let doc = PersistedRoom::from_runtime(&entry.room, video_state, entry.empty_since);
+            if let Err(err) = state.room_repo.upsert(&doc).await {
+                tracing::warn!("Failed to persist new room {}: {err}", room.id);
+            }
+        }
     }
+
+    (
+        axum::http::StatusCode::CREATED,
+        Json(serde_json::to_value(room).unwrap()),
+    )
 }
 
 async fn get_last_room(
@@ -82,40 +98,37 @@ async fn get_last_room(
         );
     };
 
-    let store = state.room_store.read().await;
-    match RoomService::get_room(&store, &room_id) {
-        Some(room) => {
-            let matches_type = match room.room_type {
-                crate::rooms::models::RoomType::Youtube => room_type == "youtube",
-                crate::rooms::models::RoomType::Soundcloud => room_type == "soundcloud",
-                crate::rooms::models::RoomType::Belet => room_type == "belet",
-            };
-
-            if !matches_type {
-                return (
-                    axum::http::StatusCode::NOT_FOUND,
-                    Json(serde_json::json!({ "error": "No recent room" })),
-                );
-            }
-
-            (
-                axum::http::StatusCode::OK,
-                Json(serde_json::to_value(room).unwrap()),
-            )
-        }
-        None => (
+    let Some(room) = ensure_in_memory(&state.room_store, &state.room_repo, &room_id).await else {
+        return (
             axum::http::StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "error": "Room expired or not found" })),
-        ),
+        );
+    };
+
+    let matches_type = match room.room_type {
+        crate::rooms::models::RoomType::Youtube => room_type == "youtube",
+        crate::rooms::models::RoomType::Soundcloud => room_type == "soundcloud",
+        crate::rooms::models::RoomType::Belet => room_type == "belet",
+    };
+
+    if !matches_type {
+        return (
+            axum::http::StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "No recent room" })),
+        );
     }
+
+    (
+        axum::http::StatusCode::OK,
+        Json(serde_json::to_value(room).unwrap()),
+    )
 }
 
 async fn get_room(
     State(state): State<AppContext>,
     Path(id): Path<String>,
 ) -> (axum::http::StatusCode, Json<serde_json::Value>) {
-    let store = state.room_store.read().await;
-    match RoomService::get_room(&store, &id) {
+    match ensure_in_memory(&state.room_store, &state.room_repo, &id).await {
         Some(room) => (
             axum::http::StatusCode::OK,
             Json(serde_json::to_value(room).unwrap()),
@@ -131,6 +144,16 @@ async fn get_room_state(
     State(state): State<AppContext>,
     Path(id): Path<String>,
 ) -> (axum::http::StatusCode, Json<serde_json::Value>) {
+    if ensure_in_memory(&state.room_store, &state.room_repo, &id)
+        .await
+        .is_none()
+    {
+        return (
+            axum::http::StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "Room not found" })),
+        );
+    }
+
     let store = state.room_store.read().await;
     match RoomService::get_room_state(&store, &id) {
         Some(state_) => (

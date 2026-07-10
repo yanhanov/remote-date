@@ -17,6 +17,7 @@ use crate::chat::models::ChatMessage;
 use crate::chat::service::ChatService;
 use crate::config::AppContext;
 use crate::auth::jwt;
+use crate::rooms::persist::{ensure_in_memory, persist_room};
 use crate::rooms::service::RoomService;
 use crate::social::service::SocialService;
 
@@ -231,19 +232,19 @@ async fn handle_event(
 ) {
     match event {
         IncomingEvent::RoomJoin { room_id } => {
+            if ensure_in_memory(&app_state.room_store, &app_state.room_repo, &room_id)
+                .await
+                .is_none()
             {
-                let rooms = app_state.room_store.read().await;
-                if RoomService::get_room(&rooms, &room_id).is_none() {
-                    send_to_conn(
-                        conn_id,
-                        serde_json::json!({
-                            "event": "room:error",
-                            "message": "Room not found"
-                        }),
-                    )
-                    .await;
-                    return;
-                }
+                send_to_conn(
+                    conn_id,
+                    serde_json::json!({
+                        "event": "room:error",
+                        "message": "Room not found"
+                    }),
+                )
+                .await;
+                return;
             }
 
             {
@@ -256,6 +257,7 @@ async fn handle_event(
             }
 
             let participants = sync_room_participants(app_state, &room_id).await;
+            persist_room(&app_state.room_store, &app_state.room_repo, &room_id).await;
 
             let rooms = app_state.room_store.read().await;
             if let Some(state) = RoomService::get_room_state(&rooms, &room_id) {
@@ -299,6 +301,10 @@ async fn handle_event(
             room_id,
             current_time,
         } => {
+            if !require_room(app_state, conn_id, &room_id).await {
+                return;
+            }
+
             let mut rooms = app_state.room_store.write().await;
             let room = match RoomService::get_room(&rooms, &room_id) {
                 Some(r) => r,
@@ -317,6 +323,8 @@ async fn handle_event(
                     timestamp: chrono::Utc::now().timestamp_millis(),
                 }),
             );
+            drop(rooms);
+            persist_room(&app_state.room_store, &app_state.room_repo, &room_id).await;
 
             if let Some(st) = new_state {
                 broadcast_to_room_except(
@@ -335,6 +343,10 @@ async fn handle_event(
             room_id,
             current_time,
         } => {
+            if !require_room(app_state, conn_id, &room_id).await {
+                return;
+            }
+
             let mut rooms = app_state.room_store.write().await;
             let room = match RoomService::get_room(&rooms, &room_id) {
                 Some(r) => r,
@@ -353,6 +365,8 @@ async fn handle_event(
                     timestamp: chrono::Utc::now().timestamp_millis(),
                 }),
             );
+            drop(rooms);
+            persist_room(&app_state.room_store, &app_state.room_repo, &room_id).await;
 
             if let Some(st) = new_state {
                 broadcast_to_room_except(
@@ -383,6 +397,10 @@ async fn handle_event(
                 return;
             }
 
+            if !require_room(app_state, conn_id, &room_id).await {
+                return;
+            }
+
             let mut rooms = app_state.room_store.write().await;
             let is_playing = RoomService::get_room(&rooms, &room_id)
                 .map(|r| r.is_playing)
@@ -402,6 +420,8 @@ async fn handle_event(
                     timestamp: chrono::Utc::now().timestamp_millis(),
                 }),
             );
+            drop(rooms);
+            persist_room(&app_state.room_store, &app_state.room_repo, &room_id).await;
 
             if let Some(st) = new_state {
                 let payload = serde_json::json!({
@@ -426,6 +446,10 @@ async fn handle_event(
             }
         }
         IncomingEvent::VideoSyncRequest { room_id } => {
+            if !require_room(app_state, conn_id, &room_id).await {
+                return;
+            }
+
             let rooms = app_state.room_store.read().await;
             if let Some(state) = RoomService::get_room_state(&rooms, &room_id) {
                 send_to_conn(
@@ -449,6 +473,10 @@ async fn handle_event(
             queue,
             queue_index,
         } => {
+            if !require_room(app_state, conn_id, &room_id).await {
+                return;
+            }
+
             let mut rooms = app_state.room_store.write().await;
             let room = match RoomService::get_room(&rooms, &room_id) {
                 Some(r) => r,
@@ -492,6 +520,8 @@ async fn handle_event(
                 queue.clone(),
                 queue_index,
             );
+            drop(rooms);
+            persist_room(&app_state.room_store, &app_state.room_repo, &room_id).await;
 
             broadcast_to_room_except(
                 &room_id,
@@ -516,6 +546,10 @@ async fn handle_event(
             channel_title,
             thumbnail_url,
         } => {
+            if !require_room(app_state, conn_id, &room_id).await {
+                return;
+            }
+
             let mut rooms = app_state.room_store.write().await;
             let room = match RoomService::get_room(&rooms, &room_id) {
                 Some(r) => r,
@@ -555,6 +589,8 @@ async fn handle_event(
                 &video_id,
                 youtube_url.clone(),
             );
+            drop(rooms);
+            persist_room(&app_state.room_store, &app_state.room_repo, &room_id).await;
 
             broadcast_to_room_except(
                 &room_id,
@@ -575,6 +611,10 @@ async fn handle_event(
             belet_url,
             title,
         } => {
+            if !require_room(app_state, conn_id, &room_id).await {
+                return;
+            }
+
             let mut rooms = app_state.room_store.write().await;
             let room = match RoomService::get_room(&rooms, &room_id) {
                 Some(r) => r,
@@ -614,6 +654,8 @@ async fn handle_event(
                 &belet_url,
                 title.clone(),
             );
+            drop(rooms);
+            persist_room(&app_state.room_store, &app_state.room_repo, &room_id).await;
 
             broadcast_to_room_except(
                 &room_id,
@@ -910,5 +952,16 @@ async fn send_room_not_found(conn_id: Uuid) {
         }),
     )
     .await;
+}
+
+async fn require_room(app_state: &AppContext, conn_id: Uuid, room_id: &str) -> bool {
+    if ensure_in_memory(&app_state.room_store, &app_state.room_repo, room_id)
+        .await
+        .is_some()
+    {
+        return true;
+    }
+    send_room_not_found(conn_id).await;
+    false
 }
 

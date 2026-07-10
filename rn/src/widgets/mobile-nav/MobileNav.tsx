@@ -52,10 +52,9 @@ export function MobileNav() {
               accessibilityState={{ selected: active }}
             >
               {"isProfile" in item && user ? (
-                <View
-                  style={[styles.avatarWrap, active && styles.avatarActive]}
-                >
-                  <UserAvatar user={user} size="sm" />
+                <View style={styles.avatarWrap}>
+                  {active ? <View style={styles.avatarRing} /> : null}
+                  <UserAvatar user={user} size={24} />
                 </View>
               ) : NavIcon ? (
                 <NavIcon
@@ -116,15 +115,17 @@ function createStyles(colors: ThemeColors, bottomInset: number) {
       color: colors.primary,
     },
     avatarWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      borderWidth: 2,
-      borderColor: 'transparent',
-      alignItems: 'center',
-      justifyContent: 'center',
+      width: 24,
+      height: 24,
+      alignItems: "center",
+      justifyContent: "center",
     },
-    avatarActive: {
+    avatarRing: {
+      position: "absolute",
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      borderWidth: 2,
       borderColor: colors.primary,
     },
   });

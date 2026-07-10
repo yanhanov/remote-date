@@ -25,7 +25,7 @@ import type { ThemeColors } from '@/shared/theme/colors';
 
 const HEADER_HEIGHT = 56;
 const HEADER_INSET = 10;
-const COMPOSER_HEIGHT = 44;
+const COMPOSER_HEIGHT = 48;
 const COMPOSER_INSET = 10;
 const STACK_GAP = 8;
 const BUBBLE_MAX_WIDTH = 320;
@@ -119,7 +119,6 @@ export function MessagesThreadPanel({
   if (!userId) {
     return (
       <View style={styles.emptyWrap}>
-        <ThreadBackdrop colors={colors} />
         <View style={styles.emptyIcon}>
           <ChatsCircle size={32} color={colors.primary} weight="duotone" />
         </View>
@@ -139,8 +138,6 @@ export function MessagesThreadPanel({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
-      <ThreadBackdrop colors={colors} />
-
       {/* Floating pill header — mirrors Vue messages-page__thread-header */}
       <View style={[styles.header, { top: headerTop }]}>
         {showBackButton ? (
@@ -241,44 +238,37 @@ export function MessagesThreadPanel({
         />
       )}
 
-      {/* Floating composer — mirrors Vue messages-page__composer */}
+      {/* Floating composer */}
       <View style={[styles.composer, { bottom: composerBottom }]}>
-        <Input
-          value={newMessage}
-          onChangeText={setNewMessage}
-          placeholder="Write a message..."
-          style={styles.composerInput}
-          onSubmitEditing={handleSend}
-          returnKeyType="send"
-        />
-        <Pressable
-          onPress={handleSend}
-          disabled={!canSend}
-          style={({ pressed }) => [
-            styles.sendBtn,
-            canSend ? styles.sendBtnActive : styles.sendBtnIdle,
-            pressed && canSend && styles.sendBtnPressed,
-          ]}
-          accessibilityLabel="Send message"
-        >
-          <PaperPlaneRight
-            size={20}
-            color={canSend ? colors.primaryForeground : colors.muted}
-            weight="fill"
+        <View style={styles.composerBar}>
+          <Input
+            value={newMessage}
+            onChangeText={setNewMessage}
+            placeholder="Write a message..."
+            style={styles.composerInput}
+            onSubmitEditing={handleSend}
+            returnKeyType="send"
           />
-        </Pressable>
+          <Pressable
+            onPress={handleSend}
+            disabled={!canSend}
+            style={({ pressed }) => [
+              styles.sendBtn,
+              canSend ? styles.sendBtnActive : styles.sendBtnIdle,
+              pressed && canSend && styles.sendBtnPressed,
+            ]}
+            accessibilityLabel="Send message"
+          >
+            <PaperPlaneRight
+              size={18}
+              color={canSend ? colors.primaryForeground : colors.muted}
+              weight="fill"
+              style={styles.sendIcon}
+            />
+          </Pressable>
+        </View>
       </View>
     </KeyboardAvoidingView>
-  );
-}
-
-function ThreadBackdrop({ colors }: { colors: ThemeColors }) {
-  // Soft top wash only — dotted grid from Vue doesn't translate cleanly on native.
-  return (
-    <View
-      pointerEvents="none"
-      style={[stylesShared.threadGlow, { backgroundColor: `${colors.primary}0F` }]}
-    />
   );
 }
 
@@ -288,16 +278,6 @@ function formatTime(value: string) {
     minute: '2-digit',
   }).format(new Date(value));
 }
-
-const stylesShared = StyleSheet.create({
-  threadGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 180,
-  },
-});
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -316,7 +296,7 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 30,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: `${colors.border}66`,
-      backgroundColor: Platform.OS === 'ios' ? `${colors.background}B3` : `${colors.background}E6`,
+      backgroundColor: Platform.OS === 'ios' ? `${colors.card}F2` : colors.card,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
@@ -368,11 +348,9 @@ function createStyles(colors: ThemeColors) {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 1,
     },
     list: {
       flex: 1,
-      zIndex: 1,
     },
     listContent: {
       paddingHorizontal: HEADER_INSET,
@@ -403,30 +381,12 @@ function createStyles(colors: ThemeColors) {
     bubbleOwn: {
       backgroundColor: colors.primary,
       borderBottomRightRadius: 6,
-      ...(Platform.OS === 'web'
-        ? { boxShadow: `0 8px 24px -10px ${colors.primary}73` }
-        : {
-            shadowColor: colors.primary,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.35,
-            shadowRadius: 10,
-            elevation: 3,
-          }),
     },
     bubbleOther: {
-      backgroundColor: `${colors.card}E6`,
+      backgroundColor: colors.card,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: `${colors.border}99`,
+      borderColor: colors.border,
       borderBottomLeftRadius: 6,
-      ...(Platform.OS === 'web'
-        ? { boxShadow: '0 4px 20px -12px rgba(0,0,0,0.1)' }
-        : {
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.06,
-            shadowRadius: 6,
-            elevation: 1,
-          }),
     },
     inviteBubble: {
       width: '100%',
@@ -468,57 +428,64 @@ function createStyles(colors: ThemeColors) {
       left: COMPOSER_INSET,
       right: COMPOSER_INSET,
       zIndex: 20,
+    },
+    composerBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: 6,
+      minHeight: COMPOSER_HEIGHT,
+      paddingLeft: 16,
+      paddingRight: 6,
+      paddingVertical: 6,
+      borderRadius: 26,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      ...(Platform.OS === 'web'
+        ? { boxShadow: '0 4px 20px -8px rgba(0,0,0,0.12)' }
+        : {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.08,
+            shadowRadius: 10,
+            elevation: 3,
+          }),
     },
     composerInput: {
       flex: 1,
       minWidth: 0,
-      height: COMPOSER_HEIGHT,
-      borderRadius: 30,
-      paddingHorizontal: 16,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: `${colors.border}80`,
-      backgroundColor: `${colors.card}BF`,
+      height: 36,
+      borderWidth: 0,
+      borderRadius: 0,
+      backgroundColor: 'transparent',
+      paddingHorizontal: 0,
       fontSize: 15,
       ...(Platform.OS === 'web'
-        ? { boxShadow: '0 8px 32px -12px rgba(0,0,0,0.12)' }
+        ? { boxShadow: 'none', outlineStyle: 'none' as const }
         : {
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.1,
-            shadowRadius: 12,
-            elevation: 4,
+            shadowOpacity: 0,
+            elevation: 0,
           }),
     },
     sendBtn: {
-      width: COMPOSER_HEIGHT,
-      height: COMPOSER_HEIGHT,
-      borderRadius: 30,
-      borderWidth: StyleSheet.hairlineWidth,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       alignItems: 'center',
       justifyContent: 'center',
     },
     sendBtnActive: {
-      borderColor: 'transparent',
       backgroundColor: colors.primary,
-      ...(Platform.OS === 'ios'
-        ? {
-            shadowColor: colors.primary,
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.35,
-            shadowRadius: 6,
-          }
-        : { elevation: 3 }),
     },
     sendBtnIdle: {
-      borderColor: `${colors.border}80`,
-      backgroundColor: `${colors.card}BF`,
+      backgroundColor: colors.mutedBg,
     },
     sendBtnPressed: {
-      opacity: 0.9,
-      transform: [{ scale: 0.96 }],
+      opacity: 0.88,
+      transform: [{ scale: 0.94 }],
+    },
+    sendIcon: {
+      transform: [{ rotate: '-30deg' }],
     },
     emptyWrap: {
       flex: 1,
@@ -526,27 +493,24 @@ function createStyles(colors: ThemeColors) {
       justifyContent: 'center',
       padding: 32,
       gap: 12,
-      overflow: 'hidden',
       backgroundColor: colors.background,
     },
     emptyIcon: {
       width: 64,
       height: 64,
       borderRadius: 16,
-      backgroundColor: `${colors.primary}26`,
-      borderWidth: 1,
+      backgroundColor: `${colors.primary}14`,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: `${colors.primary}33`,
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 4,
-      zIndex: 1,
     },
     emptyTitle: {
       fontSize: 16,
       fontWeight: '600',
       color: colors.foreground,
       letterSpacing: -0.2,
-      zIndex: 1,
     },
     emptySubtitle: {
       fontSize: 14,
@@ -554,7 +518,6 @@ function createStyles(colors: ThemeColors) {
       color: colors.muted,
       textAlign: 'center',
       maxWidth: 280,
-      zIndex: 1,
     },
   });
 }

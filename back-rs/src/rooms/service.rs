@@ -13,9 +13,9 @@ use crate::rooms::models::{
 pub const EMPTY_ROOM_TTL: Duration = Duration::hours(24);
 
 #[derive(Debug, Clone)]
-struct RoomEntry {
-    room: VideoRoom,
-    empty_since: Option<DateTime<Utc>>,
+pub struct RoomEntry {
+    pub room: VideoRoom,
+    pub empty_since: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Default)]
@@ -27,6 +27,14 @@ pub struct RoomStore {
 impl RoomStore {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn entry(&self, room_id: &str) -> Option<&RoomEntry> {
+        self.rooms.get(room_id)
+    }
+
+    pub fn state(&self, room_id: &str) -> Option<&VideoState> {
+        self.states.get(room_id)
     }
 }
 
@@ -111,6 +119,23 @@ impl RoomService {
         store.rooms.get(room_id).map(|entry| entry.room.clone())
     }
 
+    pub fn hydrate(
+        store: &mut RoomStore,
+        room: VideoRoom,
+        state: VideoState,
+        empty_since: Option<DateTime<Utc>>,
+    ) {
+        let id = room.id.clone();
+        store.rooms.insert(
+            id.clone(),
+            RoomEntry {
+                room,
+                empty_since,
+            },
+        );
+        store.states.insert(id, state);
+    }
+
     pub fn get_room_state(store: &RoomStore, room_id: &str) -> Option<VideoState> {
         store.states.get(room_id).cloned()
     }
@@ -162,7 +187,7 @@ impl RoomService {
         store.states.remove(room_id);
     }
 
-    pub fn cleanup_stale_rooms(store: &mut RoomStore, chat_store: &mut ChatStore) -> usize {
+    pub fn cleanup_stale_rooms(store: &mut RoomStore, chat_store: &mut ChatStore) -> Vec<String> {
         let cutoff = Utc::now() - EMPTY_ROOM_TTL;
         let stale_ids: Vec<String> = store
             .rooms
@@ -182,7 +207,7 @@ impl RoomService {
             crate::chat::service::ChatService::clear_room(chat_store, room_id);
         }
 
-        stale_ids.len()
+        stale_ids
     }
 
     pub fn update_soundcloud_metadata(

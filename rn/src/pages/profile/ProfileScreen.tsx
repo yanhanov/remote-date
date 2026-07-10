@@ -243,137 +243,168 @@ export function ProfileScreen() {
                 ]}
                 accessibilityLabel="Cancel editing"
               >
-                <X size={20} color={colors.muted} weight="bold" />
+                <X size={18} color={colors.muted} weight="bold" />
               </Pressable>
             </View>
 
-            <View style={styles.editIdentity}>
-              <Pressable
-                onPress={pickAvatar}
-                disabled={isUploadingAvatar || isSaving}
-                style={({ pressed }) => [
-                  styles.avatarTrigger,
-                  pressed && styles.pressed,
-                ]}
-                accessibilityLabel="Upload profile photo"
-              >
-                <View style={styles.avatarRing}>
-                  <UserAvatar
-                    user={{ ...user, displayName: editDisplayName, avatarUrl }}
-                    size="xl"
-                  />
-                  {isUploadingAvatar ? (
-                    <View style={styles.avatarBusy}>
-                      <ActivityIndicator color="#fff" />
-                    </View>
-                  ) : null}
-                </View>
-                <View style={styles.cameraBadge}>
-                  <Camera size={14} color="#fff" weight="bold" />
-                </View>
-              </Pressable>
-              {avatarUrl ? (
-                <Pressable
-                  onPress={removeAvatar}
-                  disabled={isUploadingAvatar || isSaving}
-                  hitSlop={8}
-                >
-                  <Text style={styles.removePhotoText}>Remove photo</Text>
-                </Pressable>
-              ) : (
-                <Text style={styles.avatarHint}>Tap photo to change</Text>
-              )}
-            </View>
-
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardLabel}>Personal information</Text>
+            <View style={styles.editSheet}>
+              <View style={styles.editHero}>
+                <View
+                  style={[styles.editOrb, styles.editOrbA, { backgroundColor: `${colors.primary}22` }]}
+                />
+                <View
+                  style={[styles.editOrb, styles.editOrbB, { backgroundColor: `${colors.primary}12` }]}
+                />
               </View>
 
-              <View style={styles.cardBody}>
-                <Field label="Username" styles={styles}>
-                  <Input
-                    value={username}
-                    onChangeText={setUsername}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    placeholder="yourname"
-                    editable={!isSaving}
-                    style={styles.input}
-                  />
-                  <Text style={styles.hint}>
-                    Letters, numbers, underscores. 3–30 characters.
-                  </Text>
-                </Field>
+              <View style={styles.editAvatarStage}>
+                <Pressable
+                  onPress={pickAvatar}
+                  disabled={isUploadingAvatar || isSaving}
+                  style={({ pressed }) => [
+                    styles.avatarTrigger,
+                    pressed && styles.pressed,
+                  ]}
+                  accessibilityLabel="Upload profile photo"
+                >
+                  <View style={[styles.avatarHalo, { borderColor: `${colors.primary}40` }]} />
+                  <View style={styles.avatarFrame}>
+                    <UserAvatar
+                      user={{ ...user, displayName: editDisplayName, avatarUrl }}
+                      size="xl"
+                    />
+                    {isUploadingAvatar ? (
+                      <View style={styles.avatarBusy}>
+                        <ActivityIndicator color="#fff" />
+                      </View>
+                    ) : null}
+                  </View>
+                  <View style={styles.cameraBadge}>
+                    <Camera size={14} color="#fff" weight="bold" />
+                  </View>
+                </Pressable>
+              </View>
 
-                <View style={styles.row2}>
-                  <Field label="First name" styles={styles} style={styles.half}>
+              <View style={styles.editIdentity}>
+                <Text style={styles.editName} numberOfLines={1}>
+                  {editDisplayName}
+                </Text>
+                {username ? (
+                  <Text style={styles.editUsername} numberOfLines={1}>
+                    @{username}
+                  </Text>
+                ) : null}
+                {avatarUrl ? (
+                  <Pressable
+                    onPress={removeAvatar}
+                    disabled={isUploadingAvatar || isSaving}
+                    hitSlop={8}
+                    style={styles.removePhotoBtn}
+                  >
+                    <Text style={styles.removePhotoText}>Remove photo</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              <View style={styles.editSections}>
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>Name</Text>
+                  <View style={styles.row2}>
+                    <Field label="First" styles={styles} style={styles.half}>
+                      <Input
+                        value={firstName}
+                        onChangeText={setFirstName}
+                        placeholder="Alex"
+                        editable={!isSaving}
+                        style={styles.input}
+                      />
+                    </Field>
+                    <Field label="Last" styles={styles} style={styles.half}>
+                      <Input
+                        value={lastName}
+                        onChangeText={setLastName}
+                        placeholder="Johnson"
+                        editable={!isSaving}
+                        style={styles.input}
+                      />
+                    </Field>
+                  </View>
+                  <Field label="Username" styles={styles}>
                     <Input
-                      value={firstName}
-                      onChangeText={setFirstName}
-                      placeholder="Alex"
+                      value={username}
+                      onChangeText={setUsername}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      placeholder="yourname"
                       editable={!isSaving}
                       style={styles.input}
                     />
-                  </Field>
-                  <Field label="Last name" styles={styles} style={styles.half}>
-                    <Input
-                      value={lastName}
-                      onChangeText={setLastName}
-                      placeholder="Johnson"
-                      editable={!isSaving}
-                      style={styles.input}
-                    />
+                    <Text style={styles.hint}>
+                      3–30 chars · letters, numbers, _
+                    </Text>
                   </Field>
                 </View>
 
-                <Field label="Birth date" styles={styles}>
-                  <BirthDateField
-                    value={birthDate}
-                    onChange={setBirthDate}
-                    disabled={isSaving}
-                  />
-                </Field>
+                <View style={styles.sectionRule} />
 
-                <Field label="Sex" styles={styles}>
-                  <View style={styles.chips}>
-                    {SEX_OPTIONS.map((option) => {
-                      const active = sex === option.value;
-                      return (
-                        <Pressable
-                          key={option.label}
-                          onPress={() => setSex(option.value)}
-                          disabled={isSaving}
-                          style={({ pressed }) => [
-                            styles.chip,
-                            active && styles.chipActive,
-                            pressed && !active && styles.chipPressed,
-                          ]}
-                        >
-                          <Text
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>Details</Text>
+                  <Field label="Birth date" styles={styles}>
+                    <BirthDateField
+                      value={birthDate}
+                      onChange={setBirthDate}
+                      disabled={isSaving}
+                    />
+                  </Field>
+                  <Field label="Sex" styles={styles}>
+                    <View style={styles.segment}>
+                      {SEX_OPTIONS.map((option) => {
+                        const active = sex === option.value;
+                        return (
+                          <Pressable
+                            key={option.label}
+                            onPress={() => setSex(option.value)}
+                            disabled={isSaving}
                             style={[
-                              styles.chipText,
-                              active && styles.chipTextActive,
+                              styles.segmentBtn,
+                              active && styles.segmentBtnActive,
                             ]}
                           >
-                            {option.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </Field>
+                            <Text
+                              style={[
+                                styles.segmentText,
+                                active && styles.segmentTextActive,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {option.label === 'Not specified' ? '—' : option.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </Field>
+                </View>
 
-                <Field label="Email" styles={styles}>
-                  <Input
-                    value={user.email}
-                    editable={false}
-                    style={[styles.input, styles.disabledInput]}
-                  />
-                </Field>
+                <View style={styles.sectionRule} />
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>Account</Text>
+                  <View style={styles.emailRow}>
+                    <View style={styles.emailText}>
+                      <Text style={styles.emailLabel}>Email</Text>
+                      <Text style={styles.emailValue} numberOfLines={1}>
+                        {user.email}
+                      </Text>
+                    </View>
+                    <View style={styles.emailLock}>
+                      <Text style={styles.emailLockText}>Locked</Text>
+                    </View>
+                  </View>
+                </View>
               </View>
 
-              <View style={styles.cardFooter}>
+              <View style={styles.editFooter}>
                 <Button
                   title="Cancel"
                   variant="outline"
@@ -382,7 +413,7 @@ export function ProfileScreen() {
                   style={styles.footerBtn}
                 />
                 <Button
-                  title={isSaving ? 'Saving…' : 'Save'}
+                  title={isSaving ? 'Saving…' : isDirty ? 'Save changes' : 'Saved'}
                   loading={isSaving}
                   disabled={!isDirty || isUploadingAvatar}
                   onPress={saveProfile}
@@ -532,95 +563,154 @@ function createStyles(colors: ThemeColors) {
     closeEditBtn: {
       width: 40,
       height: 40,
-      borderRadius: 12,
+      borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.mutedBg,
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
     },
-    editIdentity: {
+    editSheet: {
+      borderRadius: 28,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      overflow: 'visible',
+      ...(Platform.OS === 'ios'
+        ? {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.08,
+            shadowRadius: 24,
+          }
+        : { elevation: 3 }),
+    },
+    editHero: {
+      height: 108,
+      overflow: 'hidden',
+      backgroundColor: colors.mutedBg,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+    },
+    editOrb: {
+      position: 'absolute',
+      borderRadius: 999,
+    },
+    editOrbA: {
+      width: 180,
+      height: 180,
+      top: -60,
+      left: -30,
+    },
+    editOrbB: {
+      width: 140,
+      height: 140,
+      top: -40,
+      right: -40,
+    },
+    editAvatarStage: {
       alignItems: 'center',
-      gap: 10,
-      marginBottom: 20,
+      marginTop: -52,
+      zIndex: 20,
+      elevation: 20,
     },
     avatarTrigger: {
       position: 'relative',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    avatarRing: {
-      borderRadius: 64,
+    avatarHalo: {
+      position: 'absolute',
+      width: 148,
+      height: 148,
+      borderRadius: 74,
+      borderWidth: 1.5,
+    },
+    avatarFrame: {
+      padding: 5,
+      borderRadius: 999,
       borderWidth: 1,
       borderColor: colors.border,
+      backgroundColor: colors.card,
       overflow: 'hidden',
+      zIndex: 21,
+      elevation: 21,
+      ...(Platform.OS === 'ios'
+        ? {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.16,
+            shadowRadius: 14,
+          }
+        : null),
     },
     avatarBusy: {
       ...StyleSheet.absoluteFill,
       backgroundColor: 'rgba(0,0,0,0.4)',
       alignItems: 'center',
       justifyContent: 'center',
+      borderRadius: 999,
     },
     cameraBadge: {
       position: 'absolute',
-      right: 4,
-      bottom: 4,
-      width: 30,
-      height: 30,
-      borderRadius: 15,
+      right: 6,
+      bottom: 6,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
       backgroundColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 2,
       borderColor: colors.card,
+      zIndex: 22,
+      elevation: 22,
+    },
+    editIdentity: {
+      alignItems: 'center',
+      paddingTop: 14,
+      paddingHorizontal: 20,
+      gap: 2,
+    },
+    editName: {
+      fontSize: 22,
+      fontWeight: '700',
+      letterSpacing: -0.4,
+      color: colors.foreground,
+    },
+    editUsername: {
+      fontSize: 14,
+      color: colors.muted,
+    },
+    removePhotoBtn: {
+      marginTop: 8,
+      paddingVertical: 4,
     },
     removePhotoText: {
       fontSize: 13,
       color: colors.muted,
       textDecorationLine: 'underline',
     },
-    avatarHint: {
-      fontSize: 13,
-      color: colors.muted,
+    editSections: {
+      paddingTop: 8,
+      paddingBottom: 4,
     },
-    card: {
-      borderRadius: 16,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      backgroundColor: colors.card,
-      overflow: 'hidden',
-    },
-    cardHeader: {
+    section: {
       paddingHorizontal: 18,
       paddingVertical: 14,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-      gap: 3,
+      gap: 14,
     },
-    cardLabel: {
+    sectionLabel: {
       fontSize: 11,
       fontWeight: '600',
       letterSpacing: 0.9,
       textTransform: 'uppercase',
       color: colors.muted,
     },
-    cardDescription: {
-      fontSize: 12,
-      lineHeight: 16,
-      color: colors.muted,
-    },
-    cardBody: {
-      padding: 18,
-      gap: 16,
-    },
-    cardFooter: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border,
-      padding: 14,
-      paddingHorizontal: 18,
-      flexDirection: 'row',
-      gap: 10,
-      backgroundColor: colors.mutedBg,
-    },
-    footerBtn: {
-      flex: 1,
-      borderRadius: 12,
+    sectionRule: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
+      marginHorizontal: 18,
     },
     field: {
       gap: 7,
@@ -631,13 +721,10 @@ function createStyles(colors: ThemeColors) {
       color: colors.muted,
     },
     input: {
-      borderRadius: 12,
+      borderRadius: 14,
       backgroundColor: colors.background,
       borderColor: colors.border,
-      height: 44,
-    },
-    disabledInput: {
-      opacity: 0.65,
+      height: 46,
     },
     hint: {
       fontSize: 12,
@@ -652,34 +739,93 @@ function createStyles(colors: ThemeColors) {
       flex: 1,
       minWidth: 0,
     },
-    chips: {
+    segment: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
-    chip: {
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 999,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      backgroundColor: colors.background,
-    },
-    chipActive: {
-      backgroundColor: `${colors.primary}18`,
-      borderColor: colors.primary,
-    },
-    chipPressed: {
+      height: 44,
+      borderRadius: 14,
       backgroundColor: colors.mutedBg,
+      padding: 3,
+      gap: 2,
     },
-    chipText: {
-      fontSize: 13,
+    segmentBtn: {
+      flex: 1,
+      borderRadius: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 4,
+    },
+    segmentBtnActive: {
+      backgroundColor: colors.card,
+      ...(Platform.OS === 'ios'
+        ? {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.08,
+            shadowRadius: 2,
+          }
+        : { elevation: 2 }),
+    },
+    segmentText: {
+      fontSize: 12,
       fontWeight: '500',
       color: colors.muted,
     },
-    chipTextActive: {
-      color: colors.primary,
+    segmentTextActive: {
+      color: colors.foreground,
       fontWeight: '600',
+    },
+    emailRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 14,
+      backgroundColor: colors.background,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    emailText: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    emailLabel: {
+      fontSize: 11,
+      fontWeight: '500',
+      color: colors.muted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    emailValue: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.foreground,
+    },
+    emailLock: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 999,
+      backgroundColor: colors.mutedBg,
+    },
+    emailLockText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.muted,
+    },
+    editFooter: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      padding: 16,
+      flexDirection: 'row',
+      gap: 10,
+      backgroundColor: colors.mutedBg,
+      borderBottomLeftRadius: 28,
+      borderBottomRightRadius: 28,
+    },
+    footerBtn: {
+      flex: 1,
+      borderRadius: 14,
     },
 
     // Settings

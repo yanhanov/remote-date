@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import * as Crypto from 'expo-crypto';
+import { randomUUID } from 'expo-crypto';
 import { Alert } from 'react-native';
 import { socketService } from '@/shared/api/socket.service';
 import { useAuth } from '@/entities/user/model/auth.store';
@@ -9,6 +9,14 @@ import type {
   DmMessagePayload,
   DmStatusPayload,
 } from '@/shared/api/social.types';
+
+function newPendingId() {
+  try {
+    return `pending-${randomUUID()}`;
+  } catch {
+    return `pending-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
 
 function deriveStatus(payload: DmMessagePayload, isOwn: boolean) {
   if (!isOwn) return undefined;
@@ -146,7 +154,7 @@ export function useDirectMessages(options: {
       options.setMessages((prev) => [
         ...prev,
         {
-          id: `pending-${Crypto.randomUUID()}`,
+          id: newPendingId(),
           senderId: currentUserId,
           text,
           createdAt: new Date().toISOString(),

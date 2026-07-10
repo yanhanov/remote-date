@@ -213,19 +213,10 @@ onMounted(loadConversations);
         v-show="showThread"
         class="messages-page__thread relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-background"
       >
-        <div
-          class="messages-page__thread-bg pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,var(--border)_1px,transparent_0)] [background-size:22px_22px] opacity-40"
-          aria-hidden="true"
-        />
-        <div
-          class="messages-page__thread-glow pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-primary/[0.06] to-transparent"
-          aria-hidden="true"
-        />
-
         <template v-if="activeUserId">
           <RouterLink
             :to="`/users/${activeUserId}`"
-            class="messages-page__thread-header group absolute top-[10px] right-[10px] left-[10px] z-20 flex h-14 items-center gap-2 rounded-[30px] border border-border/40 bg-background/70 px-2 shadow-sm backdrop-blur-2xl transition-colors hover:bg-background/80 md:px-3"
+            class="messages-page__thread-header group absolute top-[10px] right-[10px] left-[10px] z-20 flex h-14 items-center gap-2 rounded-[30px] border border-border/40 bg-card/90 px-2 shadow-sm backdrop-blur-2xl transition-colors hover:bg-card md:px-3"
           >
             <span
               v-if="isMobile"
@@ -332,29 +323,33 @@ onMounted(loadConversations);
           </div>
 
           <form
-            class="messages-page__composer absolute right-[10px] bottom-[calc(10px+4.25rem+env(safe-area-inset-bottom))] left-[10px] z-20 flex items-end gap-2 md:bottom-[10px]"
+            class="messages-page__composer absolute right-[10px] bottom-[calc(10px+4.25rem+env(safe-area-inset-bottom))] left-[10px] z-20 md:bottom-[10px]"
             @submit.prevent="sendMessage"
           >
-            <Input
-              id="messages-composer-input"
-              v-model="newMessage"
-              class="messages-page__composer-input h-11 min-w-0 flex-1 rounded-[30px] border border-border/50 bg-card/75 px-4 shadow-[0_8px_32px_-12px] shadow-black/10 backdrop-blur-xl outline-none focus-visible:border-border/50 focus-visible:ring-0"
-              placeholder="Write a message..."
-              :disabled="isSending"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              class="messages-page__composer-submit size-11 shrink-0 rounded-[30px] border border-border/50 shadow-md backdrop-blur-xl transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-100 disabled:shadow-none"
-              :class="
-                newMessage.trim()
-                  ? 'bg-primary text-primary-foreground shadow-primary/30 hover:bg-primary/90'
-                  : 'bg-card/75 text-muted-foreground'
-              "
-              :disabled="isSending || !newMessage.trim()"
+            <div
+              class="messages-page__composer-bar flex min-h-12 items-center gap-1.5 rounded-[26px] border border-border bg-card py-1.5 pr-1.5 pl-4 shadow-[0_4px_20px_-8px] shadow-black/12"
             >
-              <SendPlaneIcon class="size-5" />
-            </Button>
+              <Input
+                id="messages-composer-input"
+                v-model="newMessage"
+                class="messages-page__composer-input h-9 min-w-0 flex-1 border-0 bg-transparent px-0 shadow-none outline-none focus-visible:border-0 focus-visible:ring-0"
+                placeholder="Write a message..."
+                :disabled="isSending"
+              />
+              <Button
+                type="submit"
+                size="icon"
+                class="messages-page__composer-submit size-9 shrink-0 rounded-full border-0 shadow-none transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-100"
+                :class="
+                  newMessage.trim()
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : 'bg-muted text-muted-foreground hover:bg-muted'
+                "
+                :disabled="isSending || !newMessage.trim()"
+              >
+                <SendPlaneIcon class="size-4" />
+              </Button>
+            </div>
           </form>
         </template>
 

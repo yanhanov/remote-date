@@ -21,7 +21,7 @@ pub struct SoundcloudQueueItem {
     pub duration_ms: Option<i64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoRoom {
     pub id: String,
@@ -45,7 +45,7 @@ pub struct VideoRoom {
     pub participants: u32,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoState {
     pub current_time: f64,

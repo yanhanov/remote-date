@@ -26,12 +26,14 @@ async fn main() -> anyhow::Result<()> {
 
     let auth_repo = auth::MongoAuthRepository::connect(&settings.mongo_url).await?;
     let social_repo = social::mongo::MongoSocialRepository::connect(&settings.mongo_url).await?;
+    let room_repo = rooms::mongo::MongoRoomRepository::connect(&settings.mongo_url).await?;
     tracing::info!("Connected to MongoDB at {}", settings.mongo_url);
 
     let app_state = config::AppContext {
         settings: settings.clone(),
         auth_repo,
         social_repo,
+        room_repo,
         room_store: std::sync::Arc::new(RwLock::new(rooms::service::RoomStore::new())),
         chat_store: std::sync::Arc::new(RwLock::new(chat::service::ChatStore::new())),
     };
@@ -39,6 +41,7 @@ async fn main() -> anyhow::Result<()> {
     {
         let room_store = app_state.room_store.clone();
         let chat_store = app_state.chat_store.clone();
+        let room_repo = app_state.room_repo.clone();
         tokio::spawn(async move {
             let interval = std::time::Duration::from_secs(60 * 15);
             loop {
@@ -48,8 +51,11 @@ async fn main() -> anyhow::Result<()> {
                     let mut chats = chat_store.write().await;
                     rooms::service::RoomService::cleanup_stale_rooms(&mut rooms, &mut chats)
                 };
-                if removed > 0 {
-                    tracing::info!("Removed {removed} stale empty room(s)");
+                for room_id in &removed {
+                    rooms::persist::delete_persisted(&room_repo, room_id).await;
+                }
+                if !removed.is_empty() {
+                    tracing::info!("Removed {} stale empty room(s)", removed.len());
                 }
             }
         });
