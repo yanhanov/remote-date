@@ -45,6 +45,8 @@ interface RoomChatPanelProps {
   variant?: 'card' | 'thread';
   /** Compact top inset for bottom-sheet presentation */
   sheet?: boolean;
+  /** Floating overlay chat (theater) — no safe-area padding, no thread header chrome */
+  compact?: boolean;
   onClose?: () => void;
   /** @deprecated use variant="thread" */
   hideHeader?: boolean;
@@ -63,6 +65,7 @@ export function RoomChatPanel({
   loading,
   variant = 'card',
   sheet = false,
+  compact = false,
   onClose,
   hideHeader,
   embedded,
@@ -81,8 +84,9 @@ export function RoomChatPanel({
         currentUserName={currentUserName}
         loading={loading}
         onClose={onClose}
-        hideHeader={hideHeader}
+        hideHeader={hideHeader || compact}
         sheet={sheet}
+        compact={compact}
       />
     );
   }
@@ -113,6 +117,7 @@ function RoomChatThread({
   onClose,
   hideHeader,
   sheet = false,
+  compact = false,
 }: Omit<RoomChatPanelProps, 'variant' | 'embedded'>) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -130,9 +135,13 @@ function RoomChatThread({
   );
   const listData = useMemo(() => [...sorted].reverse(), [sorted]);
 
-  const headerTop = sheet ? HEADER_INSET : insets.top + HEADER_INSET;
-  const composerBottom = COMPOSER_INSET + (sheet ? Math.max(insets.bottom, 8) : insets.bottom);
-  const listPaddingTop = headerTop + HEADER_HEIGHT + STACK_GAP;
+  const headerTop = compact ? 0 : sheet ? HEADER_INSET : insets.top + HEADER_INSET;
+  const composerBottom = compact
+    ? COMPOSER_INSET
+    : COMPOSER_INSET + (sheet ? Math.max(insets.bottom, 8) : insets.bottom);
+  const listPaddingTop = hideHeader
+    ? STACK_GAP
+    : headerTop + HEADER_HEIGHT + STACK_GAP;
   const listPaddingBottom = composerBottom + inputHeight + COMPOSER_EXTRA_PAD;
 
   useEffect(() => {

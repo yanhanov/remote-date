@@ -13,7 +13,8 @@ import {
   type PanResponderGestureState,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ChatCircle } from 'phosphor-react-native';
+import { ChatCircle, X } from 'phosphor-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/theme/ThemeProvider';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { useResponsive } from '@/shared/lib/use-responsive';
@@ -25,6 +26,9 @@ const FAB_MARGIN = 16;
 const FAB_POS_KEY = 'room-floating-chat-fab-pos-v3';
 const DRAG_THRESHOLD = 8;
 const SHEET_HEIGHT = '72%';
+const COMPACT_W = 300;
+const COMPACT_H = 280;
+const COMPACT_MARGIN = 12;
 
 interface FabPos {
   x: number;
@@ -40,6 +44,8 @@ interface RoomFloatingChatProps {
   onPlayTrack?: (url: string) => void;
   currentUserName?: string | null;
   messageCount?: number;
+  /** Overlay compact chat over fullscreen video (Vue RoomCompactChat). */
+  theater?: boolean;
 }
 
 export function RoomFloatingChat({
@@ -51,10 +57,15 @@ export function RoomFloatingChat({
   onPlayTrack,
   currentUserName,
   messageCount = 0,
+  theater = false,
 }: RoomFloatingChatProps) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { isWide } = useResponsive();
-  const styles = useMemo(() => createStyles(colors, isWide), [colors, isWide]);
+  const styles = useMemo(
+    () => createStyles(colors, isWide, insets.top, insets.bottom),
+    [colors, isWide, insets.top, insets.bottom],
+  );
 
   const [open, setOpen] = useState(false);
   const [seenCount, setSeenCount] = useState(messageCount);
@@ -90,6 +101,18 @@ export function RoomFloatingChat({
       cancelled = true;
     };
   }, []);
+
+  // Match Vue: show the floating chat panel when entering theater.
+  useEffect(() => {
+    if (theater) {
+      setOpen(true);
+      setSeenCount(messageCount);
+    } else {
+      setOpen(false);
+    }
+    // intentionally only react to theater toggles
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theater]);
 
   useEffect(() => {
     if (open) setSeenCount(messageCount);
@@ -193,11 +216,24 @@ export function RoomFloatingChat({
   const fabStyle =
     pos != null
       ? { left: pos.x, top: pos.y, right: undefined, bottom: undefined }
-      : { right: FAB_MARGIN, bottom: FAB_MARGIN, left: undefined, top: undefined };
+      : {
+          right: FAB_MARGIN,
+          bottom: theater ? FAB_MARGIN + insets.bottom : FAB_MARGIN,
+          left: undefined,
+          top: undefined,
+        };
+
+  const compactLeft =
+    bounds.w > 0
+      ? Math.max(COMPACT_MARGIN, bounds.w - COMPACT_W - COMPACT_MARGIN)
+      : COMPACT_MARGIN;
+  const compactTop =
+    bounds.h > 0
+      ? Math.max(insets.top + 56, bounds.h - COMPACT_H - COMPACT_MARGIN - insets.bottom)
+      : 120;
 
   return (
     <View style={styles.overlay} pointerEvents="box-none">
-      {/* Layout probe must not steal touches from the room UI underneath */}
       <View
         style={styles.layoutProbe}
         pointerEvents="none"
@@ -213,11 +249,19 @@ export function RoomFloatingChat({
         >
           <Pressable
             onPress={openChat}
-            style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+            style={({ pressed }) => [
+              styles.fab,
+              theater && styles.fabTheater,
+              pressed && styles.fabPressed,
+            ]}
             accessibilityLabel="Open room chat"
             accessibilityRole="button"
           >
-            <ChatCircle size={24} color={colors.primaryForeground} weight="fill" />
+            <ChatCircle
+              size={24}
+              color={theater ? '#fff' : colors.primaryForeground}
+              weight="fill"
+            />
             {unread > 0 ? (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
@@ -227,19 +271,39 @@ export function RoomFloatingChat({
         </View>
       ) : null}
 
-      <Modal visible={open} transparent animationType="slide" onRequestClose={closeChat}>
+      {/* Theater: floating panel over video (Vue RoomCompactChat) — no Modal so WebView stays. */}
+      {theater && open ? (
         <KeyboardAvoidingView
-          style={styles.sheetRoot}
+          style={styles.compactRoot}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          pointerEvents="box-none"
         >
-          <Pressable
-            style={styles.backdrop}
-            onPress={closeChat}
-            accessibilityLabel="Close chat"
-          />
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetBody}>
+          <View
+            style={[
+              styles.compactPanel,
+              {
+                left: compactLeft,
+                top: compactTop,
+                width: Math.min(COMPACT_W, Math.max(200, bounds.w - COMPACT_MARGIN * 2 || COMPACT_W)),
+                height: COMPACT_H,
+              },
+            ]}
+            pointerEvents="auto"
+          >
+            <View style={styles.compactHeader}>
+              <Text style={styles.compactTitle}>Chat</Text>
+              <Pressable
+                onPress={closeChat}
+                style={({ pressed }) => [
+                  styles.compactClose,
+                  pressed && styles.compactClosePressed,
+                ]}
+                accessibilityLabel="Remove chat panel"
+              >
+                <X size={14} color="rgba(255,255,255,0.75)" weight="bold" />
+              </Pressable>
+            </View>
+            <View style={styles.compactBody}>
               <RoomChatPanel
                 messages={messages}
                 newMessage={newMessage}
@@ -248,24 +312,60 @@ export function RoomFloatingChat({
                 onSendFile={onSendFile}
                 onPlayTrack={onPlayTrack}
                 currentUserName={currentUserName}
-                onClose={closeChat}
                 variant="thread"
-                sheet
+                compact
               />
             </View>
           </View>
         </KeyboardAvoidingView>
-      </Modal>
+      ) : null}
+
+      {/* Normal room: bottom sheet modal */}
+      {!theater ? (
+        <Modal visible={open} transparent animationType="slide" onRequestClose={closeChat}>
+          <KeyboardAvoidingView
+            style={styles.sheetRoot}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <Pressable
+              style={styles.backdrop}
+              onPress={closeChat}
+              accessibilityLabel="Close chat"
+            />
+            <View style={styles.sheet}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetBody}>
+                <RoomChatPanel
+                  messages={messages}
+                  newMessage={newMessage}
+                  onChangeMessage={onChangeMessage}
+                  onSend={onSend}
+                  onSendFile={onSendFile}
+                  onPlayTrack={onPlayTrack}
+                  currentUserName={currentUserName}
+                  onClose={closeChat}
+                  variant="thread"
+                  sheet
+                />
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      ) : null}
     </View>
   );
 }
 
-function createStyles(colors: ThemeColors, isWide: boolean) {
+function createStyles(
+  colors: ThemeColors,
+  isWide: boolean,
+  _topInset: number,
+  _bottomInset: number,
+) {
   return StyleSheet.create({
     overlay: {
       ...StyleSheet.absoluteFill,
       zIndex: 50,
-      // No elevation here — a full-screen elevated view steals touches on Android.
     },
     layoutProbe: {
       ...StyleSheet.absoluteFill,
@@ -275,7 +375,8 @@ function createStyles(colors: ThemeColors, isWide: boolean) {
       zIndex: 51,
       width: FAB_SIZE,
       height: FAB_SIZE,
-      elevation: 10,
+      // No elevation on Android — blanks YouTube WebView under the overlay.
+      ...(Platform.OS === 'android' ? null : { elevation: 10 }),
     },
     fab: {
       width: FAB_SIZE,
@@ -286,13 +387,19 @@ function createStyles(colors: ThemeColors, isWide: boolean) {
       backgroundColor: colors.primary,
       ...(Platform.OS === 'web'
         ? ({ boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer' } as const)
-        : {
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.22,
-            shadowRadius: 10,
-            elevation: 8,
-          }),
+        : Platform.OS === 'ios'
+          ? {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.22,
+              shadowRadius: 10,
+            }
+          : null),
+    },
+    fabTheater: {
+      backgroundColor: 'rgba(24,24,27,0.92)',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: 'rgba(255,255,255,0.15)',
     },
     fabPressed: {
       opacity: 0.9,
@@ -317,6 +424,57 @@ function createStyles(colors: ThemeColors, isWide: boolean) {
       fontSize: 10,
       fontWeight: '700',
       fontVariant: ['tabular-nums'],
+    },
+    compactRoot: {
+      ...StyleSheet.absoluteFill,
+      zIndex: 52,
+    },
+    compactPanel: {
+      position: 'absolute',
+      borderRadius: 14,
+      overflow: 'hidden',
+      backgroundColor: 'rgba(9,9,11,0.92)',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: 'rgba(255,255,255,0.15)',
+      // Avoid elevation on Android — it can blank the WebView underneath.
+      ...(Platform.OS === 'web'
+        ? { boxShadow: '0 16px 40px rgba(0,0,0,0.45)' }
+        : Platform.OS === 'ios'
+          ? {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.35,
+              shadowRadius: 20,
+            }
+          : null),
+    },
+    compactHeader: {
+      height: 40,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: 'rgba(255,255,255,0.1)',
+    },
+    compactTitle: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#fff',
+    },
+    compactClose: {
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    compactClosePressed: {
+      backgroundColor: 'rgba(255,255,255,0.1)',
+    },
+    compactBody: {
+      flex: 1,
+      minHeight: 0,
     },
     sheetRoot: {
       flex: 1,

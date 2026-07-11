@@ -8,13 +8,15 @@ import { useTheme } from '@/shared/theme/ThemeProvider';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { useResponsive } from '@/shared/lib/use-responsive';
 import { useAppNav } from '@/widgets/app-nav/use-app-nav';
+import { useRoomTheater } from '@/features/room-player/model/use-room-theater';
 
 export function AppShell({ children }: PropsWithChildren) {
   const { colors } = useTheme();
   const { isWide } = useResponsive();
   const { routeName } = useAppNav();
+  const { theater } = useRoomTheater();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const hideMobileNav = routeName === 'BeletRoom';
+  const hideMobileNav = routeName === 'BeletRoom' || theater;
 
   return (
     <View style={styles.root}>

@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
-import { UserPlus, Play, UsersThree } from 'phosphor-react-native';
+import { UserPlus, Play, UsersThree, ArrowsOut } from 'phosphor-react-native';
 import { YouTubeIcon } from '@/shared/ui/icons/PlatformIcons';
 import { useTheme } from '@/shared/theme/ThemeProvider';
 import type { ThemeColors } from '@/shared/theme/colors';
@@ -15,6 +15,11 @@ interface YoutubeRoomStageProps {
   channelTitle?: string | null;
   onInvite: () => void;
   onSelectVideo: (video: YoutubeVideo) => void;
+  /** Mobile: open our custom fullscreen (only when a video is playing). */
+  onEnterFullscreen?: () => void;
+  /** Expand the existing player in-place — do not remount WebView. */
+  fullscreen?: boolean;
+  fullscreenChrome?: ReactNode;
   children: ReactNode;
 }
 
@@ -26,54 +31,85 @@ export function YoutubeRoomStage({
   channelTitle,
   onInvite,
   onSelectVideo,
+  onEnterFullscreen,
+  fullscreen = false,
+  fullscreenChrome,
   children,
 }: YoutubeRoomStageProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-    <View style={styles.stage}>
-      <View style={styles.dock}>
-        <YoutubeVideoSearch onSelect={onSelectVideo} compact={hasVideo} />
-      </View>
+    <View style={fullscreen ? styles.stageFullscreen : styles.stage} collapsable={false}>
+      {!fullscreen ? (
+        <View style={styles.dock}>
+          <YoutubeVideoSearch onSelect={onSelectVideo} compact={hasVideo} />
+        </View>
+      ) : null}
 
-      <View style={styles.cinema}>
-        <View style={styles.metaBar}>
-          <View style={styles.metaLeft}>
-            <View style={[styles.livePill, hasVideo && styles.livePillOn]}>
-              <View style={[styles.liveDot, hasVideo && styles.liveDotOn]} />
-              <Text style={[styles.liveText, hasVideo && styles.liveTextOn]}>
-                {hasVideo ? 'Live' : 'Ready'}
-              </Text>
+      <View style={fullscreen ? styles.cinemaFullscreen : styles.cinema} collapsable={false}>
+        {!fullscreen ? (
+          <View style={styles.metaBar}>
+            <View style={styles.metaLeft}>
+              <View style={[styles.livePill, hasVideo && styles.livePillOn]}>
+                <View style={[styles.liveDot, hasVideo && styles.liveDotOn]} />
+                <Text style={[styles.liveText, hasVideo && styles.liveTextOn]}>
+                  {hasVideo ? 'Live' : 'Ready'}
+                </Text>
+              </View>
+
+              <View style={styles.metaChip}>
+                <Text style={styles.metaChipText} numberOfLines={1}>
+                  {roomId.slice(0, 8)}
+                </Text>
+              </View>
+
+              <View style={styles.metaChip}>
+                <UsersThree size={13} color="rgba(255,255,255,0.55)" weight="bold" />
+                <Text style={styles.metaChipText}>{participants}</Text>
+              </View>
             </View>
 
-            <View style={styles.metaChip}>
-              <Text style={styles.metaChipText} numberOfLines={1}>
-                {roomId.slice(0, 8)}
-              </Text>
-            </View>
+            <View style={styles.metaActions}>
+              {hasVideo && onEnterFullscreen ? (
+                <Pressable
+                  onPress={onEnterFullscreen}
+                  style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
+                  accessibilityLabel="Enter fullscreen"
+                >
+                  <ArrowsOut size={16} color="#fff" weight="bold" />
+                </Pressable>
+              ) : null}
 
-            <View style={styles.metaChip}>
-              <UsersThree size={13} color="rgba(255,255,255,0.55)" weight="bold" />
-              <Text style={styles.metaChipText}>{participants}</Text>
+              <Pressable
+                onPress={onInvite}
+                style={({ pressed }) => [styles.inviteBtn, pressed && styles.inviteBtnPressed]}
+                accessibilityLabel="Invite participant"
+              >
+                <UserPlus size={16} color="#fff" weight="bold" />
+                <Text style={styles.inviteLabel}>Invite</Text>
+              </Pressable>
             </View>
           </View>
+        ) : null}
 
-          <Pressable
-            onPress={onInvite}
-            style={({ pressed }) => [styles.inviteBtn, pressed && styles.inviteBtnPressed]}
-            accessibilityLabel="Invite participant"
-          >
-            <UserPlus size={16} color="#fff" weight="bold" />
-            <Text style={styles.inviteLabel}>Invite</Text>
-          </Pressable>
-        </View>
+        <View
+          style={fullscreen ? styles.screenShellFullscreen : styles.screenShell}
+          collapsable={false}
+        >
+          {hasVideo && !fullscreen ? (
+            <View style={styles.ambientGlow} pointerEvents="none" />
+          ) : null}
 
-        <View style={styles.screenShell}>
-          {hasVideo ? <View style={styles.ambientGlow} pointerEvents="none" /> : null}
-
-          <View style={styles.bezel} collapsable={false}>
-            <View style={styles.viewport} collapsable={false}>
+          <View style={fullscreen ? styles.bezelFullscreen : styles.bezel} collapsable={false}>
+            {/*
+              Do not merge normal/fullscreen viewport styles — RN cannot clear
+              aspectRatio with `undefined`, which left a 16:9 box and blanked the WebView.
+            */}
+            <View
+              style={fullscreen ? styles.viewportFullscreen : styles.viewport}
+              collapsable={false}
+            >
               {!hasVideo ? (
                 <View style={styles.empty}>
                   <View style={styles.emptyGlow} />
@@ -103,7 +139,9 @@ export function YoutubeRoomStage({
           </View>
         </View>
 
-        {hasVideo && (title || channelTitle) ? (
+        {fullscreen ? fullscreenChrome : null}
+
+        {!fullscreen && hasVideo && (title || channelTitle) ? (
           <View style={styles.nowPlaying}>
             <View style={styles.nowPlayingIcon}>
               <Play size={12} color="#fff" weight="fill" />
@@ -121,11 +159,13 @@ export function YoutubeRoomStage({
               ) : null}
             </View>
           </View>
-        ) : (
+        ) : null}
+
+        {!fullscreen && !(hasVideo && (title || channelTitle)) ? (
           <View style={styles.footerStrip}>
             <View style={styles.redEdge} />
           </View>
-        )}
+        ) : null}
       </View>
     </View>
   );
@@ -137,6 +177,13 @@ function createStyles(colors: ThemeColors) {
       overflow: 'visible',
       zIndex: 2,
       gap: 0,
+    },
+    stageFullscreen: {
+      flex: 1,
+      minHeight: 0,
+      backgroundColor: '#000',
+      zIndex: 50,
+      overflow: 'visible',
     },
     dock: {
       zIndex: 40,
@@ -180,6 +227,14 @@ function createStyles(colors: ThemeColors) {
             }
           : null),
     },
+    cinemaFullscreen: {
+      flex: 1,
+      minHeight: 0,
+      borderRadius: 0,
+      borderWidth: 0,
+      backgroundColor: '#000',
+      overflow: 'visible',
+    },
     metaBar: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -196,6 +251,25 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       gap: 8,
       minWidth: 0,
+    },
+    metaActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      flexShrink: 0,
+    },
+    iconBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255,255,255,0.1)',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: 'rgba(255,255,255,0.14)',
+    },
+    iconBtnPressed: {
+      backgroundColor: 'rgba(255,255,255,0.18)',
     },
     livePill: {
       flexDirection: 'row',
@@ -272,6 +346,13 @@ function createStyles(colors: ThemeColors) {
       paddingBottom: 10,
       position: 'relative',
     },
+    screenShellFullscreen: {
+      flex: 1,
+      minHeight: 0,
+      paddingHorizontal: 0,
+      paddingBottom: 0,
+      position: 'relative',
+    },
     ambientGlow: {
       position: 'absolute',
       left: 24,
@@ -293,12 +374,31 @@ function createStyles(colors: ThemeColors) {
         ? { boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)' }
         : null),
     },
+    bezelFullscreen: {
+      flex: 1,
+      minHeight: 0,
+      borderRadius: 0,
+      padding: 0,
+      borderWidth: 0,
+      backgroundColor: '#000',
+      overflow: 'visible',
+    },
     viewport: {
       width: '100%',
       aspectRatio: 16 / 9,
       backgroundColor: '#000',
       borderRadius: Platform.OS === 'android' ? 0 : 11,
       overflow: Platform.OS === 'android' ? 'visible' : 'hidden',
+      position: 'relative',
+    },
+    viewportFullscreen: {
+      flex: 1,
+      minHeight: 0,
+      width: '100%',
+      alignSelf: 'stretch',
+      backgroundColor: '#000',
+      borderRadius: 0,
+      overflow: 'visible',
       position: 'relative',
     },
     empty: {

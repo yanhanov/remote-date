@@ -14,6 +14,7 @@ import { BeletRoomScreen } from '@/pages/room/BeletRoomScreen';
 import { UserProfileScreen } from '@/pages/user/UserProfileScreen';
 import { MessagesThreadScreen } from '@/pages/messages/MessagesThreadScreen';
 import { useTheme } from '@/shared/theme/ThemeProvider';
+import { RoomTheaterProvider } from '@/features/room-player/model/use-room-theater';
 import type { AppStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -22,41 +23,43 @@ export function AppNavigator() {
   const { colors } = useTheme();
 
   return (
-    <AppShell>
-      <Stack.Navigator
-        screenOptions={{
-          headerStyle: { backgroundColor: colors.card },
-          headerTintColor: colors.foreground,
-          headerTitleStyle: { fontWeight: '600' },
-          contentStyle: { backgroundColor: colors.background },
-        }}
-      >
-        <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Friends" component={FriendsScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Messages" component={MessagesScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="About" component={AboutScreen} options={{ title: 'About' }} />
-        <Stack.Screen name="YoutubeHub" component={YoutubeHubScreen} options={{ title: 'YouTube' }} />
-        <Stack.Screen
-          name="SoundcloudHub"
-          component={SoundcloudHubScreen}
-          options={{ title: 'SoundCloud' }}
-        />
-        <Stack.Screen name="BeletHub" component={BeletHubScreen} options={{ title: 'Belet' }} />
-        <Stack.Screen name="Room" component={RoomScreen} options={{ title: 'Watch party' }} />
-        <Stack.Screen name="SoundRoom" component={SoundRoomScreen} options={{ title: 'SoundCloud Room' }} />
-        <Stack.Screen
-          name="BeletRoom"
-          component={BeletRoomScreen}
-          options={{ title: 'Belet Room', headerShown: false }}
-        />
-        <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Profile' }} />
-        <Stack.Screen
-          name="MessagesThread"
-          component={MessagesThreadScreen}
-          options={{ headerShown: false }}
-        />
-      </Stack.Navigator>
-    </AppShell>
+    <RoomTheaterProvider>
+      <AppShell>
+        <Stack.Navigator
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.card },
+            headerTintColor: colors.foreground,
+            headerTitleStyle: { fontWeight: '600' },
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        >
+          <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Friends" component={FriendsScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Messages" component={MessagesScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="About" component={AboutScreen} options={{ title: 'About' }} />
+          <Stack.Screen name="YoutubeHub" component={YoutubeHubScreen} options={{ title: 'YouTube' }} />
+          <Stack.Screen
+            name="SoundcloudHub"
+            component={SoundcloudHubScreen}
+            options={{ title: 'SoundCloud' }}
+          />
+          <Stack.Screen name="BeletHub" component={BeletHubScreen} options={{ title: 'Belet' }} />
+          <Stack.Screen name="Room" component={RoomScreen} options={{ title: 'Watch party' }} />
+          <Stack.Screen name="SoundRoom" component={SoundRoomScreen} options={{ title: 'SoundCloud Room' }} />
+          <Stack.Screen
+            name="BeletRoom"
+            component={BeletRoomScreen}
+            options={{ title: 'Belet Room', headerShown: false }}
+          />
+          <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Profile' }} />
+          <Stack.Screen
+            name="MessagesThread"
+            component={MessagesThreadScreen}
+            options={{ headerShown: false }}
+          />
+        </Stack.Navigator>
+      </AppShell>
+    </RoomTheaterProvider>
   );
 }

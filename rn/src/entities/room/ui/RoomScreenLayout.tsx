@@ -22,6 +22,8 @@ interface RoomScreenLayoutProps {
   footer?: ReactNode;
   /** Absolute FAB + full-screen thread chat */
   floatingChat?: ReactNode;
+  /** Collapse chrome so the player can expand in-place. */
+  fullscreen?: boolean;
 }
 
 export function RoomScreenLayout({
@@ -29,6 +31,7 @@ export function RoomScreenLayout({
   chat,
   footer,
   floatingChat,
+  fullscreen = false,
 }: RoomScreenLayoutProps) {
   const { colors } = useTheme();
   const { isLg, isWide } = useResponsive();
@@ -41,9 +44,16 @@ export function RoomScreenLayout({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {useFloating ? (
-        <View style={styles.floatingShell}>
-          {Platform.OS === 'android' ? (
-            <View style={[styles.floatingScroll, styles.floatingScrollContent]}>{main}</View>
+        <View style={[styles.floatingShell, fullscreen && styles.floatingShellFullscreen]}>
+          {fullscreen || Platform.OS === 'android' ? (
+            <View
+              style={[
+                styles.floatingScroll,
+                fullscreen ? styles.floatingScrollFullscreen : styles.floatingScrollContent,
+              ]}
+            >
+              {main}
+            </View>
           ) : (
             <ScrollView
               style={styles.floatingScroll}
@@ -152,6 +162,9 @@ function createStyles(colors: ThemeColors, isWide: boolean) {
       minHeight: 0,
       position: 'relative',
     },
+    floatingShellFullscreen: {
+      backgroundColor: '#000',
+    },
     floatingScroll: {
       flex: 1,
       overflow: 'visible',
@@ -166,6 +179,14 @@ function createStyles(colors: ThemeColors, isWide: boolean) {
       width: '100%',
       alignSelf: 'center',
       overflow: 'visible',
+    },
+    floatingScrollFullscreen: {
+      flex: 1,
+      paddingHorizontal: 0,
+      paddingTop: 0,
+      paddingBottom: 0,
+      maxWidth: undefined,
+      width: '100%',
     },
     mobileShell: {
       flex: 1,
