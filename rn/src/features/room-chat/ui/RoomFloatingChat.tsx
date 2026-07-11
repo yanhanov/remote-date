@@ -196,14 +196,18 @@ export function RoomFloatingChat({
       : { right: FAB_MARGIN, bottom: FAB_MARGIN, left: undefined, top: undefined };
 
   return (
-    <View
-      style={styles.overlay}
-      pointerEvents="box-none"
-      onLayout={handleOverlayLayout}
-    >
+    <View style={styles.overlay} pointerEvents="box-none">
+      {/* Layout probe must not steal touches from the room UI underneath */}
+      <View
+        style={styles.layoutProbe}
+        pointerEvents="none"
+        onLayout={handleOverlayLayout}
+      />
+
       {!open ? (
         <View
           {...panResponder.panHandlers}
+          pointerEvents="auto"
           style={[styles.fabWrap, fabStyle]}
           collapsable={false}
         >
@@ -259,15 +263,19 @@ export function RoomFloatingChat({
 function createStyles(colors: ThemeColors, isWide: boolean) {
   return StyleSheet.create({
     overlay: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       zIndex: 50,
-      elevation: 50,
+      // No elevation here — a full-screen elevated view steals touches on Android.
+    },
+    layoutProbe: {
+      ...StyleSheet.absoluteFill,
     },
     fabWrap: {
       position: 'absolute',
       zIndex: 51,
       width: FAB_SIZE,
       height: FAB_SIZE,
+      elevation: 10,
     },
     fab: {
       width: FAB_SIZE,
@@ -315,7 +323,7 @@ function createStyles(colors: ThemeColors, isWide: boolean) {
       justifyContent: 'flex-end',
     },
     backdrop: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: 'rgba(0,0,0,0.4)',
     },
     sheet: {

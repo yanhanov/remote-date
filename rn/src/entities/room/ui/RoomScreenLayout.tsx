@@ -42,14 +42,20 @@ export function RoomScreenLayout({
     >
       {useFloating ? (
         <View style={styles.floatingShell}>
-          <ScrollView
-            style={styles.floatingScroll}
-            contentContainerStyle={styles.floatingScrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {main}
-          </ScrollView>
+          {Platform.OS === 'android' ? (
+            <View style={[styles.floatingScroll, styles.floatingScrollContent]}>{main}</View>
+          ) : (
+            <ScrollView
+              style={styles.floatingScroll}
+              contentContainerStyle={styles.floatingScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              removeClippedSubviews={false}
+              nestedScrollEnabled
+            >
+              {main}
+            </ScrollView>
+          )}
           {floatingChat}
         </View>
       ) : isLg ? (
@@ -148,6 +154,7 @@ function createStyles(colors: ThemeColors, isWide: boolean) {
     },
     floatingScroll: {
       flex: 1,
+      overflow: 'visible',
     },
     floatingScrollContent: {
       flexGrow: 1,
@@ -158,6 +165,7 @@ function createStyles(colors: ThemeColors, isWide: boolean) {
       maxWidth: 960,
       width: '100%',
       alignSelf: 'center',
+      overflow: 'visible',
     },
     mobileShell: {
       flex: 1,

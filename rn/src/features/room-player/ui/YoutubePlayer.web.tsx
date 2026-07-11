@@ -14,8 +14,16 @@ interface YoutubePlayerProps {
 }
 
 function buildEmbedSrc(videoId: string) {
-  const origin = encodeURIComponent(window.location.origin);
-  return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${origin}&playsinline=1&controls=1&rel=0`;
+  const params = new URLSearchParams({
+    enablejsapi: '1',
+    origin: window.location.origin,
+    widget_referrer: window.location.origin,
+    playsinline: '1',
+    controls: '1',
+    rel: '0',
+    modestbranding: '1',
+  });
+  return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?${params.toString()}`;
 }
 
 export function YoutubePlayer({ roomId, room, loadedAt }: YoutubePlayerProps) {
@@ -65,6 +73,8 @@ export function YoutubePlayer({ roomId, room, loadedAt }: YoutubePlayerProps) {
           onReady: (event) => {
             playerRef.current = event.target;
             playerReadyRef.current = true;
+            const iframe = event.target.getIframe?.();
+            iframe?.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
             socketService.emit('video:sync_request', roomId);
           },
           onStateChange: (event) => {
@@ -175,6 +185,7 @@ export function YoutubePlayer({ roomId, room, loadedAt }: YoutubePlayerProps) {
         src: embedSrc,
         title: 'YouTube',
         onLoad: handleIframeLoad,
+        referrerPolicy: 'strict-origin-when-cross-origin',
         style: {
           position: 'absolute',
           top: 0,
@@ -196,9 +207,7 @@ export function YoutubePlayer({ roomId, room, loadedAt }: YoutubePlayerProps) {
 function createStyles() {
   return StyleSheet.create({
     container: {
-      flex: 1,
-      width: '100%',
-      height: '100%',
+      ...StyleSheet.absoluteFillObject,
       backgroundColor: '#000',
       overflow: 'hidden',
     },

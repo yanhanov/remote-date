@@ -3,22 +3,19 @@ import type { AppScreenProps } from '@/app/navigation/types';
 import { useRoom } from '@/entities/room/model/useRoom';
 import { useRoomScreenLifecycle } from '@/entities/room/model/useRoomScreenLifecycle';
 import { RoomNotFound } from '@/entities/room/ui/RoomNotFound';
-import {
-  RoomInviteButton,
-  RoomPanelCard,
-  RoomScreenLayout,
-} from '@/entities/room/ui/RoomScreenLayout';
-import { RoomPlayerCard } from '@/entities/room/ui/RoomPlayerCard';
+import { RoomScreenLayout } from '@/entities/room/ui/RoomScreenLayout';
 import { useChat } from '@/features/room-chat/model/useChat';
 import { RoomFloatingChat } from '@/features/room-chat/ui/RoomFloatingChat';
 import { YoutubePlayer, changeRoomVideo } from '@/features/room-player/ui/YoutubePlayer';
-import { YoutubeVideoSearch } from '@/features/room-player/ui/YoutubeVideoSearch';
+import { YoutubeRoomStage } from '@/features/room-player/ui/YoutubeRoomStage';
 import { RoomInviteModal } from '@/features/room-share/ui/RoomInviteModal';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
 import { youtubeWatchUrl } from '@/shared/lib/youtube-url';
 
 export function RoomScreen({ route, navigation }: AppScreenProps<'Room'>) {
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [nowPlayingTitle, setNowPlayingTitle] = useState<string | null>(null);
+  const [nowPlayingChannel, setNowPlayingChannel] = useState<string | null>(null);
 
   const roomId = route.params.id;
   const {
@@ -78,31 +75,26 @@ export function RoomScreen({ route, navigation }: AppScreenProps<'Room'>) {
       youtubeVideoId: video.videoId,
       youtubeUrl: youtubeWatchUrl(video.videoId),
     });
+    setNowPlayingTitle(video.title ?? null);
+    setNowPlayingChannel(video.channelTitle ?? null);
   }
 
   return (
     <RoomScreenLayout
       main={
-        <>
-          <RoomPanelCard
-            title="Choose a video"
-            description="Everyone in the room watches the same video."
-          >
-            <YoutubeVideoSearch onSelect={handleVideoSelect} />
-          </RoomPanelCard>
-
-          <RoomPlayerCard
-            roomId={room.id}
-            participants={participants}
-            hasContent={hasVideo}
-            placeholder="Search for a video or paste a link to start watching."
-            headerAction={<RoomInviteButton onPress={() => setInviteOpen(true)} />}
-          >
-            {hasVideo ? (
-              <YoutubePlayer roomId={roomId} room={room} loadedAt={loadedAt} />
-            ) : null}
-          </RoomPlayerCard>
-        </>
+        <YoutubeRoomStage
+          roomId={room.id}
+          participants={participants}
+          hasVideo={hasVideo}
+          title={hasVideo ? nowPlayingTitle : null}
+          channelTitle={hasVideo ? nowPlayingChannel : null}
+          onInvite={() => setInviteOpen(true)}
+          onSelectVideo={handleVideoSelect}
+        >
+          {hasVideo ? (
+            <YoutubePlayer roomId={roomId} room={room} loadedAt={loadedAt} />
+          ) : null}
+        </YoutubeRoomStage>
       }
       floatingChat={
         <RoomFloatingChat

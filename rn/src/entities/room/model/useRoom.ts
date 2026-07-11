@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { roomAPI } from '@/shared/api/room.api';
 import { socketService } from '@/shared/api/socket.service';
@@ -10,6 +10,8 @@ export function useRoom(roomId: string) {
   const [error, setError] = useState<string | null>(null);
   const [participants, setParticipants] = useState(0);
   const [loadedAt, setLoadedAt] = useState(0);
+  const roomRef = useRef<VideoRoom | null>(null);
+  roomRef.current = room;
 
   const onUserJoined = useCallback(
     (data: { roomId: string; participants: number }) => {
@@ -44,7 +46,9 @@ export function useRoom(roomId: string) {
   }, [onUserJoined, onUserLeft, onRoomError]);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    const isInitial = roomRef.current == null;
+    // Reloading must NOT flip loading→true or the screen unmounts YoutubePlayer.
+    if (isInitial) setLoading(true);
     setError(null);
     try {
       const data = await roomAPI.getRoom(roomId);
@@ -52,8 +56,10 @@ export function useRoom(roomId: string) {
       setParticipants(data.participants);
       setLoadedAt(Date.now());
     } catch (err: unknown) {
-      setRoom(null);
-      setError(err instanceof Error ? err.message : 'Room not found');
+      if (isInitial) {
+        setRoom(null);
+        setError(err instanceof Error ? err.message : 'Room not found');
+      }
       throw err;
     } finally {
       setLoading(false);

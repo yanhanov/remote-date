@@ -19,6 +19,7 @@ declare global {
           height?: string | number;
           width?: string | number;
           videoId?: string;
+          host?: string;
           playerVars?: Record<string, number | string>;
           events?: {
             onReady?: (event: { target: YoutubePlayerInstance }) => void;
