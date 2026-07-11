@@ -18,21 +18,41 @@ const CHAT_MIN_HEIGHT = 480;
 
 interface RoomScreenLayoutProps {
   main: ReactNode;
-  chat: ReactNode;
+  chat?: ReactNode;
   footer?: ReactNode;
+  /** Absolute FAB + full-screen thread chat */
+  floatingChat?: ReactNode;
 }
 
-export function RoomScreenLayout({ main, chat, footer }: RoomScreenLayoutProps) {
+export function RoomScreenLayout({
+  main,
+  chat,
+  footer,
+  floatingChat,
+}: RoomScreenLayoutProps) {
   const { colors } = useTheme();
-  const { isLg } = useResponsive();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { isLg, isWide } = useResponsive();
+  const styles = useMemo(() => createStyles(colors, isWide), [colors, isWide]);
+  const useFloating = Boolean(floatingChat);
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {isLg ? (
+      {useFloating ? (
+        <View style={styles.floatingShell}>
+          <ScrollView
+            style={styles.floatingScroll}
+            contentContainerStyle={styles.floatingScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {main}
+          </ScrollView>
+          {floatingChat}
+        </View>
+      ) : isLg ? (
         <View style={styles.wideShell}>
           <View style={styles.mainColumn}>{main}</View>
           <View style={styles.chatColumn}>{chat}</View>
@@ -93,7 +113,7 @@ export function RoomInviteButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, isWide: boolean) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -120,6 +140,24 @@ function createStyles(colors: ThemeColors) {
       maxWidth: 340,
       minHeight: CHAT_MIN_HEIGHT,
       alignSelf: 'stretch',
+    },
+    floatingShell: {
+      flex: 1,
+      minHeight: 0,
+      position: 'relative',
+    },
+    floatingScroll: {
+      flex: 1,
+    },
+    floatingScrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: isWide ? 24 : 16,
+      paddingTop: isWide ? 24 : 16,
+      paddingBottom: isWide ? 96 : 88,
+      gap: 16,
+      maxWidth: 960,
+      width: '100%',
+      alignSelf: 'center',
     },
     mobileShell: {
       flex: 1,

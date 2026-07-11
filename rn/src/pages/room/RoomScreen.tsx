@@ -10,7 +10,7 @@ import {
 } from '@/entities/room/ui/RoomScreenLayout';
 import { RoomPlayerCard } from '@/entities/room/ui/RoomPlayerCard';
 import { useChat } from '@/features/room-chat/model/useChat';
-import { RoomChatPanel } from '@/features/room-chat/ui/RoomChatPanel';
+import { RoomFloatingChat } from '@/features/room-chat/ui/RoomFloatingChat';
 import { YoutubePlayer, changeRoomVideo } from '@/features/room-player/ui/YoutubePlayer';
 import { YoutubeVideoSearch } from '@/features/room-player/ui/YoutubeVideoSearch';
 import { RoomInviteModal } from '@/features/room-share/ui/RoomInviteModal';
@@ -104,14 +104,15 @@ export function RoomScreen({ route, navigation }: AppScreenProps<'Room'>) {
           </RoomPlayerCard>
         </>
       }
-      chat={
-        <RoomChatPanel
+      floatingChat={
+        <RoomFloatingChat
           messages={messages}
           newMessage={newMessage}
           onChangeMessage={setNewMessage}
           onSend={send}
           onSendFile={(mode) => void sendFile(mode)}
           currentUserName={currentUserName}
+          messageCount={messages.length}
         />
       }
       footer={
