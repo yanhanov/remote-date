@@ -18,7 +18,6 @@ import type {
 } from "@/shared/api/social.types";
 import { parseRoomInvite } from "@/shared/lib/room-invite-message";
 import { Button } from "@/shared/ui/button";
-import { Input } from "@/shared/ui/input";
 import { cn } from "@/shared/lib/utils";
 
 const route = useRoute();
@@ -61,6 +60,15 @@ async function focusComposer() {
   document.getElementById("messages-composer-input")?.focus();
 }
 
+function autoGrowComposer(event?: Event) {
+  const el =
+    (event?.target as HTMLTextAreaElement | null) ??
+    (document.getElementById("messages-composer-input") as HTMLTextAreaElement | null);
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+}
+
 async function loadThread(userId: string) {
   isLoadingThread.value = true;
   activeUserId.value = userId;
@@ -77,6 +85,10 @@ async function loadThread(userId: string) {
     isLoadingThread.value = false;
     await nextTick();
     scrollToBottom(false);
+    requestAnimationFrame(() => {
+      scrollToBottom(false);
+      setTimeout(() => scrollToBottom(false), 50);
+    });
     await focusComposer();
   }
 }
@@ -85,6 +97,7 @@ async function scrollToBottom(smooth = true) {
   await nextTick();
   const el = messagesContainer.value;
   if (!el) return;
+
   el.scrollTo({
     top: el.scrollHeight,
     behavior: smooth ? "smooth" : "instant",
@@ -95,7 +108,7 @@ const { sendMessage: sendDirectMessage } = useDirectMessages({
   messages,
   conversations,
   activeUserId,
-  onThreadMessage: scrollToBottom,
+  onThreadMessage: () => scrollToBottom(true),
   reloadConversations: loadConversations,
 });
 
@@ -106,7 +119,10 @@ async function sendMessage() {
   if (!sendDirectMessage(activeUserId.value, text)) return;
 
   newMessage.value = "";
+  await nextTick();
+  autoGrowComposer();
   await focusComposer();
+  await scrollToBottom(true);
 }
 
 function openConversation(userId: string) {
@@ -253,7 +269,7 @@ onMounted(loadConversations);
 
           <div
             ref="messagesContainer"
-            class="messages-page__messages absolute inset-0 z-0 space-y-2 overflow-y-auto scroll-smooth px-[10px] pt-[calc(10px+3.5rem+8px)] pb-[calc(10px+3.5rem+8px+4.25rem+env(safe-area-inset-bottom))] md:pb-[calc(10px+3.5rem+8px)]"
+            class="messages-page__messages absolute inset-0 z-0 space-y-2 overflow-y-auto scroll-smooth px-[10px] pt-[calc(10px+3.5rem+8px)] pb-[calc(10px+2.75rem+8px+4.25rem+env(safe-area-inset-bottom))] md:pb-[calc(10px+2.75rem+8px)]"
           >
             <div v-if="isLoadingThread" class="flex justify-center py-16">
               <PhSpinner class="size-5 animate-spin text-muted-foreground" />
@@ -323,33 +339,32 @@ onMounted(loadConversations);
           </div>
 
           <form
-            class="messages-page__composer absolute right-[10px] bottom-[calc(10px+4.25rem+env(safe-area-inset-bottom))] left-[10px] z-20 md:bottom-[10px]"
+            class="messages-page__composer absolute right-[10px] bottom-[calc(10px+4.25rem+env(safe-area-inset-bottom))] left-[10px] z-20 flex items-end gap-2 md:bottom-[10px]"
             @submit.prevent="sendMessage"
           >
-            <div
-              class="messages-page__composer-bar flex min-h-12 items-center gap-1.5 rounded-[26px] border border-border bg-card py-1.5 pr-1.5 pl-4 shadow-[0_4px_20px_-8px] shadow-black/12"
+            <textarea
+              id="messages-composer-input"
+              v-model="newMessage"
+              rows="1"
+              class="messages-page__composer-input max-h-[7.5rem] min-h-11 min-w-0 flex-1 resize-none overflow-y-auto rounded-[22px] border border-border bg-card px-4 py-2.5 text-[15px] leading-5 shadow-[0_4px_16px_-8px] shadow-black/10 outline-none focus-visible:border-border focus-visible:ring-0"
+              placeholder="Write a message..."
+              :disabled="isSending"
+              @keydown.enter.exact.prevent="sendMessage"
+              @input="autoGrowComposer"
+            />
+            <Button
+              type="submit"
+              size="icon"
+              class="messages-page__composer-submit size-11 shrink-0 rounded-[22px] border shadow-sm transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-100"
+              :class="
+                newMessage.trim()
+                  ? 'border-transparent bg-primary text-primary-foreground shadow-primary/30 hover:bg-primary/90'
+                  : 'border-border bg-card text-muted-foreground'
+              "
+              :disabled="isSending || !newMessage.trim()"
             >
-              <Input
-                id="messages-composer-input"
-                v-model="newMessage"
-                class="messages-page__composer-input h-9 min-w-0 flex-1 border-0 bg-transparent px-0 shadow-none outline-none focus-visible:border-0 focus-visible:ring-0"
-                placeholder="Write a message..."
-                :disabled="isSending"
-              />
-              <Button
-                type="submit"
-                size="icon"
-                class="messages-page__composer-submit size-9 shrink-0 rounded-full border-0 shadow-none transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-100"
-                :class="
-                  newMessage.trim()
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    : 'bg-muted text-muted-foreground hover:bg-muted'
-                "
-                :disabled="isSending || !newMessage.trim()"
-              >
-                <SendPlaneIcon class="size-4" />
-              </Button>
-            </div>
+              <SendPlaneIcon class="size-5" />
+            </Button>
           </form>
         </template>
 

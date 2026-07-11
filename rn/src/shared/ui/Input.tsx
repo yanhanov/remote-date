@@ -5,7 +5,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { useMemo } from 'react';
+import { forwardRef, useMemo } from 'react';
 import { useTheme } from '@/shared/theme/ThemeProvider';
 import type { ThemeColors } from '@/shared/theme/colors';
 
@@ -13,18 +13,21 @@ interface InputProps extends TextInputProps {
   containerStyle?: StyleProp<ViewStyle>;
 }
 
-export function Input({ style, containerStyle, ...props }: InputProps) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+export const Input = forwardRef<TextInput, InputProps>(
+  function Input({ style, containerStyle, ...props }, ref) {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
-  return (
-    <TextInput
-      style={[styles.input, containerStyle, style]}
-      placeholderTextColor={colors.muted}
-      {...props}
-    />
-  );
-}
+    return (
+      <TextInput
+        ref={ref}
+        style={[styles.input, containerStyle, style]}
+        placeholderTextColor={colors.muted}
+        {...props}
+      />
+    );
+  },
+);
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,9 @@ import {
   Pressable,
   Alert,
   ActionSheetIOS,
+  TextInput,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from 'react-native';
 import { Plus, PaperPlaneRight } from 'phosphor-react-native';
 import type { ChatMessage } from '@/shared/api/chat.types';
@@ -31,6 +34,8 @@ function MessageSeparator() {
   return <View style={{ height: 12 }} />;
 }
 
+const BOTTOM_THRESHOLD = 80;
+
 export function RoomChatPanel({
   messages,
   newMessage,
@@ -45,17 +50,40 @@ export function RoomChatPanel({
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const inputRef = useRef<TextInput>(null);
+  const stickToBottomRef = useRef(true);
+
   const sorted = useMemo(
     () => [...messages].sort((a, b) => a.time - b.time),
     [messages],
   );
 
+  const scrollToBottom = useCallback((animated = false) => {
+    const run = () => listRef.current?.scrollToEnd({ animated });
+    requestAnimationFrame(() => {
+      run();
+      requestAnimationFrame(run);
+    });
+  }, []);
+
   useEffect(() => {
     if (!sorted.length) return;
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: true });
-    });
-  }, [sorted]);
+    if (stickToBottomRef.current) scrollToBottom(true);
+  }, [sorted, scrollToBottom]);
+
+  function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distance =
+      contentSize.height - layoutMeasurement.height - contentOffset.y;
+    stickToBottomRef.current = distance <= BOTTOM_THRESHOLD;
+  }
+
+  function handleSend() {
+    stickToBottomRef.current = true;
+    onSend();
+    requestAnimationFrame(() => inputRef.current?.focus());
+    scrollToBottom(true);
+  }
 
   function openAttachPicker() {
     if (!onSendFile) return;
@@ -96,9 +124,16 @@ export function RoomChatPanel({
         keyExtractor={(item, index) => `${item.time}-${index}`}
         style={styles.list}
         contentContainerStyle={styles.listContent}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
         ItemSeparatorComponent={MessageSeparator}
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        onContentSizeChange={() => {
+          if (stickToBottomRef.current) {
+            listRef.current?.scrollToEnd({ animated: false });
+          }
+        }}
         ListEmptyComponent={
           !loading ? (
             <Text style={styles.empty}>No messages yet. Start the conversation!</Text>
@@ -152,12 +187,14 @@ export function RoomChatPanel({
       <View style={styles.composer}>
         <View style={styles.inputWrap}>
           <Input
+            ref={inputRef}
             value={newMessage}
             onChangeText={onChangeMessage}
             placeholder="Message..."
             style={styles.input}
-            onSubmitEditing={onSend}
+            onSubmitEditing={handleSend}
             returnKeyType="send"
+            blurOnSubmit={false}
           />
         </View>
 
@@ -176,7 +213,7 @@ export function RoomChatPanel({
         </Pressable>
 
         <Pressable
-          onPress={onSend}
+          onPress={handleSend}
           style={({ pressed }) => [styles.iconBtn, styles.sendBtn, pressed && styles.iconBtnPressed]}
           accessibilityLabel="Send message"
         >
@@ -272,7 +309,7 @@ function createStyles(colors: ThemeColors) {
       marginBottom: 4,
     },
     authorOwn: {
-      color: `${colors.primaryForeground}B3`,
+      color: `${colors.primaryForeground}CC`,
     },
     authorOther: {
       color: colors.muted,
@@ -288,30 +325,28 @@ function createStyles(colors: ThemeColors) {
       color: colors.foreground,
     },
     track: {
+      marginTop: 6,
       fontSize: 12,
-      marginTop: 4,
+      fontWeight: '600',
     },
     trackOwn: {
-      color: `${colors.primaryForeground}E6`,
+      color: colors.primaryForeground,
     },
     trackOther: {
       color: colors.primary,
     },
     trackPressed: {
-      opacity: 0.75,
+      opacity: 0.7,
     },
     imageWrap: {
       marginTop: 8,
-      maxWidth: 200,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: border40,
+      borderRadius: 12,
       overflow: 'hidden',
     },
     image: {
-      width: 200,
-      maxWidth: '100%',
-      minHeight: 80,
+      width: 180,
+      height: 120,
+      backgroundColor: colors.mutedBg,
     },
     composer: {
       flexDirection: 'row',
@@ -326,19 +361,16 @@ function createStyles(colors: ThemeColors) {
       minWidth: 0,
     },
     input: {
-      height: 36,
-      borderRadius: colors.radius - 2,
-      backgroundColor: `${colors.background}99`,
-      borderColor: border60,
-      fontSize: 14,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: colors.background,
     },
     iconBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: colors.radius - 2,
+      width: 40,
+      height: 40,
+      borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
-      ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : null),
     },
     attachBtn: {
       backgroundColor: colors.secondary,
@@ -347,10 +379,10 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.primary,
     },
     iconBtnPressed: {
-      opacity: 0.9,
+      opacity: 0.85,
     },
     iconBtnDisabled: {
-      opacity: 0.5,
+      opacity: 0.45,
     },
   });
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,10 @@ import {
   Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
+  TextInput,
+  LayoutAnimation,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretLeft, ChatsCircle, PaperPlaneRight } from 'phosphor-react-native';
@@ -19,16 +23,29 @@ import { UserAvatar } from '@/entities/user/ui/UserAvatar';
 import { DirectMessageContent } from '@/features/direct-message/ui/DirectMessageContent';
 import { MessageStatusIcon } from '@/features/direct-message/ui/MessageStatusIcon';
 import { parseRoomInvite } from '@/shared/lib/room-invite-message';
-import { Input } from '@/shared/ui/Input';
 import { useTheme } from '@/shared/theme/ThemeProvider';
 import type { ThemeColors } from '@/shared/theme/colors';
+import { useResponsive } from '@/shared/lib/use-responsive';
 
 const HEADER_HEIGHT = 56;
 const HEADER_INSET = 10;
-const COMPOSER_HEIGHT = 48;
+const COMPOSER_HEIGHT = 44;
+const COMPOSER_MAX_HEIGHT = 120;
 const COMPOSER_INSET = 10;
 const STACK_GAP = 8;
+/** Gap between last bubble and floating composer */
+const COMPOSER_EXTRA_PAD = 8;
 const BUBBLE_MAX_WIDTH = 320;
+const BOTTOM_THRESHOLD = 48;
+const INPUT_LINE_HEIGHT = 20;
+/** Total vertical padding so one line + pad === COMPOSER_HEIGHT */
+const INPUT_VERT_PAD = COMPOSER_HEIGHT - INPUT_LINE_HEIGHT;
+
+const MESSAGE_LAYOUT_ANIM = LayoutAnimation.create(
+  220,
+  LayoutAnimation.Types.easeInEaseOut,
+  LayoutAnimation.Properties.opacity,
+);
 
 interface MessagesThreadPanelProps {
   userId: string | null;
@@ -51,25 +68,29 @@ export function MessagesThreadPanel({
 }: MessagesThreadPanelProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { isWide } = useResponsive();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [activeDisplayName, setActiveDisplayName] = useState('');
   const [activeAvatarUrl, setActiveAvatarUrl] = useState<string | undefined>();
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [inputHeight, setInputHeight] = useState(COMPOSER_HEIGHT);
+
+  const inputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList<DirectMessageItem>>(null);
+  const messageTextRef = useRef('');
+  // Inverted list: offset ~0 means visual bottom (latest messages).
+  const stickToBottomRef = useRef(true);
 
-  // MobileNav is hidden on MessagesThread — sit above home indicator like Vue desktop.
+  // Newest-first so inverted FlatList opens on the latest message with no scroll.
+  const listData = useMemo(() => [...messages].reverse(), [messages]);
+
   const headerTop = insets.top + HEADER_INSET;
-  const composerBottom = COMPOSER_INSET + insets.bottom;
+  // Mobile nav already owns the bottom safe-area inset; don't double-pad over it.
+  const composerBottom = COMPOSER_INSET + (isWide ? insets.bottom : 0);
   const listPaddingTop = headerTop + HEADER_HEIGHT + STACK_GAP;
-  const listPaddingBottom = composerBottom + COMPOSER_HEIGHT + STACK_GAP;
-
-  const scrollToBottom = useCallback(() => {
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: true });
-    });
-  }, []);
+  const listPaddingBottom = composerBottom + inputHeight + COMPOSER_EXTRA_PAD;
 
   useEffect(() => {
     if (!userId) {
@@ -77,11 +98,17 @@ export function MessagesThreadPanel({
       setActiveDisplayName('');
       setActiveAvatarUrl(undefined);
       setNewMessage('');
+      messageTextRef.current = '';
+      setInputHeight(COMPOSER_HEIGHT);
       return;
     }
 
     let cancelled = false;
     setIsLoading(true);
+    stickToBottomRef.current = true;
+    setNewMessage('');
+    messageTextRef.current = '';
+    setInputHeight(COMPOSER_HEIGHT);
 
     void (async () => {
       try {
@@ -93,27 +120,49 @@ export function MessagesThreadPanel({
       } catch {
         if (!cancelled) setMessages([]);
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-          scrollToBottom();
-        }
+        if (!cancelled) setIsLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [userId, setMessages, scrollToBottom]);
+  }, [userId, setMessages]);
 
-  useEffect(() => {
-    if (messages.length) scrollToBottom();
-  }, [messages, scrollToBottom]);
+  function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    // Inverted: y≈0 is the latest messages (visual bottom).
+    stickToBottomRef.current = event.nativeEvent.contentOffset.y <= BOTTOM_THRESHOLD;
+  }
+
+  function focusComposer() {
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  }
+
+  function scrollToLatest(animated = false) {
+    listRef.current?.scrollToOffset({ offset: 0, animated });
+  }
 
   function handleSend() {
     const text = newMessage.trim();
     if (!text || !userId) return;
+
+    stickToBottomRef.current = true;
+    LayoutAnimation.configureNext(MESSAGE_LAYOUT_ANIM);
+
     if (!onSend(text)) return;
+
+    messageTextRef.current = '';
     setNewMessage('');
+    setInputHeight(COMPOSER_HEIGHT);
+    requestAnimationFrame(() => scrollToLatest(false));
+    focusComposer();
+  }
+
+  function handleInputContentSizeChange(contentHeight: number, text: string) {
+    const next = composerHeightFromContent(contentHeight, text.length > 0);
+    setInputHeight((prev) => (prev === next ? prev : next));
   }
 
   if (!userId) {
@@ -138,7 +187,6 @@ export function MessagesThreadPanel({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
-      {/* Floating pill header — mirrors Vue messages-page__thread-header */}
       <View style={[styles.header, { top: headerTop }]}>
         {showBackButton ? (
           <Pressable
@@ -179,17 +227,25 @@ export function MessagesThreadPanel({
       ) : (
         <FlatList
           ref={listRef}
-          data={messages}
+          data={listData}
           keyExtractor={(item) => item.id}
+          inverted
           style={styles.list}
           contentContainerStyle={[
             styles.listContent,
-            { paddingTop: listPaddingTop, paddingBottom: listPaddingBottom },
+            listData.length === 0 && styles.listContentEmpty,
+            // inverted flips paddings: top = visual bottom (composer), bottom = visual top (header)
+            { paddingTop: listPaddingBottom, paddingBottom: listPaddingTop },
           ]}
-          keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode="none"
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
           ListEmptyComponent={
-            <Text style={styles.listEmpty}>No messages yet. Say hello!</Text>
+            <View style={styles.emptyFlip}>
+              <Text style={styles.listEmpty}>No messages yet. Say hello!</Text>
+            </View>
           }
           renderItem={({ item }) => {
             const isInvite = Boolean(parseRoomInvite(item.text));
@@ -238,45 +294,85 @@ export function MessagesThreadPanel({
         />
       )}
 
-      {/* Floating composer */}
-      <View style={[styles.composer, { bottom: composerBottom }]}>
-        <View style={styles.composerBar}>
-          <Input
+      <View style={[styles.composer, { bottom: composerBottom }]} pointerEvents="box-none">
+        <View
+          style={[
+            styles.composerField,
+            { height: inputHeight },
+            inputHeight > COMPOSER_HEIGHT && styles.composerFieldMultiline,
+          ]}
+        >
+          <TextInput
+            ref={inputRef}
             value={newMessage}
-            onChangeText={setNewMessage}
+            onChangeText={(text) => {
+              messageTextRef.current = text;
+              setNewMessage(text);
+              if (!text) setInputHeight(COMPOSER_HEIGHT);
+            }}
             placeholder="Write a message..."
+            placeholderTextColor={colors.muted}
             style={styles.composerInput}
-            onSubmitEditing={handleSend}
-            returnKeyType="send"
+            multiline
+            scrollEnabled={inputHeight >= COMPOSER_MAX_HEIGHT}
+            textAlignVertical={inputHeight > COMPOSER_HEIGHT ? 'top' : 'center'}
+            blurOnSubmit={false}
+            returnKeyType="default"
+            underlineColorAndroid="transparent"
+            {...(Platform.OS === 'android' ? { includeFontPadding: false } : null)}
+            onContentSizeChange={(event) => {
+              handleInputContentSizeChange(
+                event.nativeEvent.contentSize.height,
+                messageTextRef.current,
+              );
+            }}
           />
-          <Pressable
-            onPress={handleSend}
-            disabled={!canSend}
-            style={({ pressed }) => [
-              styles.sendBtn,
-              canSend ? styles.sendBtnActive : styles.sendBtnIdle,
-              pressed && canSend && styles.sendBtnPressed,
-            ]}
-            accessibilityLabel="Send message"
-          >
-            <PaperPlaneRight
-              size={18}
-              color={canSend ? colors.primaryForeground : colors.muted}
-              weight="fill"
-              style={styles.sendIcon}
-            />
-          </Pressable>
         </View>
+        <Pressable
+          onPress={handleSend}
+          disabled={!canSend}
+          onPressIn={() => {
+            if (canSend) stickToBottomRef.current = true;
+          }}
+          style={({ pressed }) => [
+            styles.sendBtn,
+            canSend ? styles.sendBtnActive : styles.sendBtnIdle,
+            pressed && canSend && styles.sendBtnPressed,
+          ]}
+          accessibilityLabel="Send message"
+        >
+          <PaperPlaneRight
+            size={20}
+            color={canSend ? colors.primaryForeground : colors.muted}
+            weight="fill"
+            style={styles.sendIcon}
+          />
+        </Pressable>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-function formatTime(value: string) {
+function formatTime(value: string): string {
   return new Intl.DateTimeFormat(undefined, {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+/** Keep empty/single-line at COMPOSER_HEIGHT so it matches the send button. */
+function composerHeightFromContent(contentHeight: number, hasText: boolean): number {
+  if (!hasText || !Number.isFinite(contentHeight) || contentHeight <= 0) {
+    return COMPOSER_HEIGHT;
+  }
+
+  // contentSize sometimes reports the full padded frame (~44); ignore that as "one line".
+  if (contentHeight <= INPUT_LINE_HEIGHT + 6) {
+    return COMPOSER_HEIGHT;
+  }
+
+  const extraLines = Math.ceil((contentHeight - INPUT_LINE_HEIGHT) / INPUT_LINE_HEIGHT);
+  return Math.min(COMPOSER_MAX_HEIGHT, COMPOSER_HEIGHT + extraLines * INPUT_LINE_HEIGHT);
 }
 
 function createStyles(colors: ThemeColors) {
@@ -357,11 +453,16 @@ function createStyles(colors: ThemeColors) {
       gap: 8,
       flexGrow: 1,
     },
+    listContentEmpty: {
+      justifyContent: 'center',
+    },
+    emptyFlip: {
+      transform: [{ scaleY: -1 }],
+    },
     listEmpty: {
       textAlign: 'center',
       color: colors.muted,
       fontSize: 14,
-      marginTop: 48,
     },
     messageRow: {
       flexDirection: 'row',
@@ -428,57 +529,68 @@ function createStyles(colors: ThemeColors) {
       left: COMPOSER_INSET,
       right: COMPOSER_INSET,
       zIndex: 20,
-    },
-    composerBar: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      minHeight: COMPOSER_HEIGHT,
-      paddingLeft: 16,
-      paddingRight: 6,
-      paddingVertical: 6,
-      borderRadius: 26,
+      alignItems: 'flex-end',
+      gap: 8,
+    },
+    composerField: {
+      flex: 1,
+      minWidth: 0,
+      height: COMPOSER_HEIGHT,
+      maxHeight: COMPOSER_MAX_HEIGHT,
+      borderRadius: COMPOSER_HEIGHT / 2,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
       backgroundColor: colors.card,
+      justifyContent: 'center',
+      overflow: 'hidden',
       ...(Platform.OS === 'web'
-        ? { boxShadow: '0 4px 20px -8px rgba(0,0,0,0.12)' }
+        ? { boxShadow: '0 4px 16px -8px rgba(0,0,0,0.1)' }
         : {
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.08,
-            shadowRadius: 10,
+            shadowRadius: 8,
             elevation: 3,
           }),
     },
+    composerFieldMultiline: {
+      justifyContent: 'flex-start',
+      paddingVertical: INPUT_VERT_PAD / 2,
+    },
     composerInput: {
-      flex: 1,
-      minWidth: 0,
-      height: 36,
-      borderWidth: 0,
-      borderRadius: 0,
-      backgroundColor: 'transparent',
-      paddingHorizontal: 0,
+      width: '100%',
+      paddingHorizontal: 16,
+      paddingVertical: 0,
       fontSize: 15,
-      ...(Platform.OS === 'web'
-        ? { boxShadow: 'none', outlineStyle: 'none' as const }
-        : {
-            shadowOpacity: 0,
-            elevation: 0,
-          }),
+      lineHeight: INPUT_LINE_HEIGHT,
+      color: colors.foreground,
+      ...(Platform.OS === 'web' ? { outlineStyle: 'none' as const, resize: 'none' as const } : null),
     },
     sendBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: COMPOSER_HEIGHT,
+      height: COMPOSER_HEIGHT,
+      borderRadius: COMPOSER_HEIGHT / 2,
+      borderWidth: StyleSheet.hairlineWidth,
       alignItems: 'center',
       justifyContent: 'center',
+      backgroundColor: colors.card,
     },
     sendBtnActive: {
+      borderColor: 'transparent',
       backgroundColor: colors.primary,
+      ...(Platform.OS === 'ios'
+        ? {
+            shadowColor: colors.primary,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.3,
+            shadowRadius: 6,
+          }
+        : { elevation: 3 }),
     },
     sendBtnIdle: {
-      backgroundColor: colors.mutedBg,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
     },
     sendBtnPressed: {
       opacity: 0.88,

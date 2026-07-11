@@ -38,14 +38,17 @@ export function RoomScreenLayout({ main, chat, footer }: RoomScreenLayoutProps) 
           <View style={styles.chatColumn}>{chat}</View>
         </View>
       ) : (
-        <ScrollView
-          style={styles.mobileScroll}
-          contentContainerStyle={styles.mobileScrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.mobileMain}>{main}</View>
+        <View style={styles.mobileShell}>
+          <ScrollView
+            style={styles.mobileMainScroll}
+            contentContainerStyle={styles.mobileMainContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {main}
+          </ScrollView>
           <View style={styles.mobileChat}>{chat}</View>
-        </ScrollView>
+        </View>
       )}
       {footer}
     </KeyboardAvoidingView>
@@ -118,23 +121,26 @@ function createStyles(colors: ThemeColors) {
       minHeight: CHAT_MIN_HEIGHT,
       alignSelf: 'stretch',
     },
-    mobileScroll: {
+    mobileShell: {
       flex: 1,
-    },
-    mobileScrollContent: {
-      flexGrow: 1,
+      minHeight: 0,
       paddingHorizontal: 16,
       paddingTop: 16,
-      paddingBottom: MOBILE_NAV_HEIGHT + 24,
+      paddingBottom: MOBILE_NAV_HEIGHT + 16,
       gap: 16,
     },
-    mobileMain: {
+    mobileMainScroll: {
+      flexGrow: 0,
+      flexShrink: 1,
+      maxHeight: '48%',
+    },
+    mobileMainContent: {
       gap: 12,
-      minHeight: CHAT_MIN_HEIGHT,
+      paddingBottom: 4,
     },
     mobileChat: {
-      minHeight: CHAT_MIN_HEIGHT,
-      height: CHAT_MIN_HEIGHT,
+      flex: 1,
+      minHeight: 240,
       minWidth: 0,
     },
   });
